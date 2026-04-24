@@ -921,3 +921,60 @@ function isPointInsideShape(worldPoint, shape) {
     return false;
   }
 
+  const localPoint = applyMatrix(inverse, worldPoint);
+  return pointInPolygon(localPoint, shape.points);
+}
+
+function pickTopmostShape(worldPoint) {
+  for (let i = state.shapes.length - 1; i >= 0; i -= 1) {
+    const shape = state.shapes[i];
+    if (isPointInsideShape(worldPoint, shape)) {
+      return shape;
+    }
+  }
+
+  return null;
+}
+
+function eventToWorld(event) {
+  const rect = canvas.getBoundingClientRect();
+  const screenPoint = {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top
+  };
+  return screenToWorld(screenPoint);
+}
+
+function setupCanvasInteraction() {
+  canvas.addEventListener("pointerdown", (event) => {
+    const selected = getSelectedShape();
+    const worldPoint = eventToWorld(event);
+
+    if (state.pickingPivot && selected) {
+      selected.pivotMode = "custom";
+      selected.pivot = {
+        x: Math.round(worldPoint.x),
+        y: Math.round(worldPoint.y)
+      };
+
+      state.pickingPivot = false;
+      ui.pickPivotBtn.textContent = "Pick Pivot On Canvas";
+      ui.pickPivotBtn.classList.add("secondary");
+
+      syncControlsFromShape(selected);
+      updateMatrixDisplay();
+      return;
+    }
+
+    const hitShape = pickTopmostShape(worldPoint);
+
+    if (!hitShape) {
+      state.dragging.active = false;
+      return;
+    }
+
+    selectShapeById(hitShape.id);
+
+    state.dragging.active = true;
+    state.dragging.pointerId = event.pointerId;
+    state.dragging.offsetX = worldPoint.x - hitShape.x;
