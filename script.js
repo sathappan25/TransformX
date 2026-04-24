@@ -402,3 +402,61 @@ function setupControlHandlers() {
     shape.animation.baseScaleX = shape.scaleX;
     updateMatrixDisplay();
   });
+
+  bindRangeInput(ui.syRange, ui.syInput, (value) => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+    shape.scaleY = clamp(value, 0.2, 3);
+    shape.animation.baseScaleY = shape.scaleY;
+    updateMatrixDisplay();
+  });
+
+  ui.pivotMode.addEventListener("change", () => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+
+    shape.pivotMode = ui.pivotMode.value;
+    updatePivotInputsState();
+    updateMatrixDisplay();
+  });
+
+  const updatePivotInputs = () => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+
+    shape.pivot.x = Number(ui.pivotX.value);
+    shape.pivot.y = Number(ui.pivotY.value);
+    updateMatrixDisplay();
+  };
+
+  ui.pivotX.addEventListener("input", updatePivotInputs);
+  ui.pivotY.addEventListener("input", updatePivotInputs);
+
+  ui.pickPivotBtn.addEventListener("click", () => {
+    state.pickingPivot = !state.pickingPivot;
+    ui.pickPivotBtn.textContent = state.pickingPivot
+      ? "Click Canvas To Set Pivot"
+      : "Pick Pivot On Canvas";
+    ui.pickPivotBtn.classList.toggle("secondary", !state.pickingPivot);
+  });
+
+  ui.animationMode.addEventListener("change", () => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+
+    shape.animation.mode = ui.animationMode.value;
+    if (shape.animation.mode === "none") {
+      shape.animation.active = false;
+    }
+    updateAnimationButtonLabel();
+  });
+
+  bindRangeInput(ui.animSpeedRange, ui.animSpeedInput, (value) => {

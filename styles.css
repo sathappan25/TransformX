@@ -120,3 +120,20 @@ pre {
 
 input[type="number"],
 select {
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(20, 33, 43, 0.2);
+  padding: 0.42rem 0.5rem;
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--text-main);
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent-2);
+}
+
+select#shapeList {
+  width: 100%;
+  min-height: 86px;
+  margin-top: 0.35rem;
