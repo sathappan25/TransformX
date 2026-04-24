@@ -56,3 +56,61 @@ const state = {
   },
   lastFrameTime: performance.now()
 };
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function toRadians(degrees) {
+  return (degrees * Math.PI) / 180;
+}
+
+function normalizeAngle(degrees) {
+  let value = degrees;
+  while (value > 180) {
+    value -= 360;
+  }
+  while (value < -180) {
+    value += 360;
+  }
+  return value;
+}
+
+function getCanvasCenter() {
+  return {
+    x: canvas.width / 2,
+    y: canvas.height / 2
+  };
+}
+
+function worldToScreen(point) {
+  const center = getCanvasCenter();
+  return {
+    x: point.x + center.x,
+    y: point.y + center.y
+  };
+}
+
+function screenToWorld(point) {
+  const center = getCanvasCenter();
+  return {
+    x: point.x - center.x,
+    y: point.y - center.y
+  };
+}
+
+function resizeCanvas() {
+  const rect = canvas.getBoundingClientRect();
+  const width = Math.max(400, Math.floor(rect.width));
+  const height = Math.max(400, Math.floor(rect.height));
+
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+}
+
+function buildTemplate(type) {
+  if (type === "triangle") {
+    return {
+      label: "Triangle",
