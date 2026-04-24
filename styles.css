@@ -103,3 +103,20 @@ label {
 .control {
   margin-top: 0.45rem;
 }
+
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 86px;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+input,
+select,
+button,
+pre {
+  font-family: inherit;
+}
+
+input[type="number"],
+select {

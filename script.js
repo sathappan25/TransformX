@@ -344,3 +344,61 @@ function bindRangeInput(rangeElement, numberElement, onChange) {
       return;
     }
 
+    rangeElement.value = String(parsed);
+    numberElement.value = String(parsed);
+    onChange(parsed);
+  };
+
+  rangeElement.addEventListener("input", () => applyChange(rangeElement.value));
+  numberElement.addEventListener("input", () => applyChange(numberElement.value));
+}
+
+function setupControlHandlers() {
+  ui.addShapeBtn.addEventListener("click", () => {
+    addShape(ui.shapeTemplate.value);
+  });
+
+  ui.deleteShapeBtn.addEventListener("click", () => {
+    deleteSelectedShape();
+  });
+
+  ui.shapeList.addEventListener("change", () => {
+    selectShapeById(Number(ui.shapeList.value));
+  });
+
+  bindRangeInput(ui.txRange, ui.txInput, (value) => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+    shape.x = value;
+    updateMatrixDisplay();
+  });
+
+  bindRangeInput(ui.tyRange, ui.tyInput, (value) => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+    shape.y = value;
+    updateMatrixDisplay();
+  });
+
+  bindRangeInput(ui.rotRange, ui.rotInput, (value) => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+    shape.rotation = normalizeAngle(value);
+    updateMatrixDisplay();
+  });
+
+  bindRangeInput(ui.sxRange, ui.sxInput, (value) => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+    shape.scaleX = clamp(value, 0.2, 3);
+    shape.animation.baseScaleX = shape.scaleX;
+    updateMatrixDisplay();
+  });
