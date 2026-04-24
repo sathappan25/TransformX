@@ -229,3 +229,61 @@ function syncControlsFromShape(shape) {
   ui.pivotX.value = String(Math.round(shape.pivot.x));
   ui.pivotY.value = String(Math.round(shape.pivot.y));
 
+  ui.animationMode.value = shape.animation.mode;
+  setPairValues(
+    ui.animSpeedRange,
+    ui.animSpeedInput,
+    Number(shape.animation.speed.toFixed(1))
+  );
+
+  updatePivotInputsState();
+  updateAnimationButtonLabel();
+}
+
+function updateSelectedShapeLabel() {
+  const shape = getSelectedShape();
+
+  if (!shape) {
+    ui.selectedShapeLabel.textContent = "No shape selected.";
+    return;
+  }
+
+  ui.selectedShapeLabel.textContent = `Selected: ${shape.name}`;
+}
+
+function selectShapeById(id) {
+  state.selectedId = id;
+  refreshShapeList();
+  const shape = getSelectedShape();
+  syncControlsFromShape(shape);
+  updateSelectedShapeLabel();
+  updateMatrixDisplay();
+}
+
+function addShape(type) {
+  const newShape = createShape(type);
+  state.shapes.push(newShape);
+  selectShapeById(newShape.id);
+}
+
+function deleteSelectedShape() {
+  const selected = getSelectedShape();
+
+  if (!selected) {
+    return;
+  }
+
+  if (state.shapes.length === 1) {
+    resetShape(selected);
+    return;
+  }
+
+  state.shapes = state.shapes.filter((shape) => shape.id !== selected.id);
+
+  if (state.shapes.length > 0) {
+    state.selectedId = state.shapes[state.shapes.length - 1].id;
+  } else {
+    state.selectedId = null;
+  }
+
+  refreshShapeList();

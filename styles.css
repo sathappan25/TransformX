@@ -68,3 +68,20 @@ body {
 
 .panel {
   background: linear-gradient(175deg, rgba(255, 255, 255, 0.9), rgba(247, 250, 252, 0.8));
+  border: 1px solid rgba(20, 33, 43, 0.1);
+  border-radius: 14px;
+  padding: 0.8rem;
+  margin-bottom: 0.75rem;
+}
+
+.panel h2 {
+  margin: 0 0 0.55rem;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+}
+
+label {
+  font-size: 0.86rem;
+  color: var(--text-soft);
+}
+
