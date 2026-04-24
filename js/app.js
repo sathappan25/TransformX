@@ -48,13 +48,6 @@ const state = {
   cameraDistance: 620
 };
 
-const viewYaw = toRadians(-34);
-const viewPitch = toRadians(21);
-const cosYaw = Math.cos(viewYaw);
-const sinYaw = Math.sin(viewYaw);
-const cosPitch = Math.cos(viewPitch);
-const sinPitch = Math.sin(viewPitch);
-
 function getCanvasCenter() {
   return {
     x: canvas.width / 2,
@@ -179,11 +172,11 @@ function createObject(type) {
   const tx = -190 + column * 190;
   const ty = 0;
   const tz = row * 120;
-  const objectNumber = state.nextId;
+  const typeIndex = state.objects.filter((object3d) => object3d.type === type).length + 1;
 
   return {
     id: state.nextId++,
-    name: `Object ${objectNumber}`,
+    name: `${type}${typeIndex}`,
     type,
     vertices: template.vertices,
     edges: template.edges,
@@ -656,33 +649,22 @@ function updateMatrixDisplay() {
   ui.matrixOutput.textContent = `${rows.join("\n")}\n\nCamera Distance: ${state.cameraDistance.toFixed(1)}`;
 }
 
-function applyViewRotation(point) {
-  const xYaw = point.x * cosYaw + point.z * sinYaw;
-  const zYaw = -point.x * sinYaw + point.z * cosYaw;
-
-  const yPitch = point.y * cosPitch - zYaw * sinPitch;
-  const zPitch = point.y * sinPitch + zYaw * cosPitch;
-
-  return {
-    x: xYaw,
-    y: yPitch,
-    z: zPitch
-  };
-}
-
 function projectPoint(point) {
-  const viewedPoint = applyViewRotation(point);
-  const depth = state.cameraDistance + viewedPoint.z;
+  const depth = state.cameraDistance + point.z;
   if (depth < 45) {
     return null;
   }
 
   const center = getCanvasCenter();
-  const scale = state.cameraDistance / depth;
+  const perspective = state.cameraDistance / depth;
+
+  // Keep default orientation straight while still visualizing z-depth.
+  const zSkewX = point.z * 0.28;
+  const zSkewY = 0;
 
   return {
-    x: center.x + viewedPoint.x * scale,
-    y: center.y - viewedPoint.y * scale,
+    x: center.x + (point.x + zSkewX) * perspective,
+    y: center.y - (point.y + zSkewY) * perspective,
     depth
   };
 }
