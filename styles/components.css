@@ -1,0 +1,143 @@
+.panel h2 {
+  margin: 0 0 0.55rem;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.row label {
+  flex: 1;
+}
+
+.row.space-top,
+.space-top {
+  margin-top: 0.5rem;
+}
+
+.control {
+  margin-top: 0.45rem;
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 86px;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+select#shapeList {
+  width: 100%;
+  min-height: 86px;
+  margin-top: 0.35rem;
+}
+
+.btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 0.45rem 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #ffffff;
+  background: linear-gradient(140deg, var(--accent), #ff8b52);
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(239, 108, 47, 0.24);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn.secondary {
+  background: linear-gradient(140deg, var(--accent-2), #18aba5);
+}
+
+.btn.danger {
+  background: linear-gradient(140deg, var(--danger), #da5a5a);
+}
+
+.btn.test {
+  width: 100%;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.35rem;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.muted {
+  margin: 0.4rem 0 0;
+  color: var(--text-soft);
+  font-size: 0.84rem;
+}
+
+#matrixOutput {
+  margin: 0;
+  padding: 0.6rem;
+  border-radius: 10px;
+  border: 1px solid rgba(20, 33, 43, 0.12);
+  background: rgba(17, 34, 51, 0.94);
+  color: #e3edf3;
+  font-family: "IBM Plex Mono", Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.explanation p {
+  margin: 0.36rem 0;
+  color: var(--text-soft);
+  font-size: 0.83rem;
+  line-height: 1.35;
+}
+
+.test-grid {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.legend {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.84rem;
+  color: var(--text-soft);
+}
+
+.legend span {
+  display: flex;
+  align-items: center;
+  gap: 0.36rem;
+}
+
+.swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.swatch-original {
+  background: #334f63;
+  border: 2px dashed #d8e3ea;
+}
+
+.swatch-transformed {
+  background: var(--accent);
+}

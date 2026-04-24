@@ -1,0 +1,1077 @@
+import { palette } from "./config.js";
+import { clamp, normalizeAngle, toRadians } from "./math-utils.js";
+
+const canvas = document.getElementById("sceneCanvas");
+const ctx = canvas.getContext("2d");
+
+const ui = {
+  shapeTemplate: document.getElementById("shapeTemplate"),
+  addShapeBtn: document.getElementById("addShapeBtn"),
+  deleteShapeBtn: document.getElementById("deleteShapeBtn"),
+  shapeList: document.getElementById("shapeList"),
+  selectedShapeLabel: document.getElementById("selectedShapeLabel"),
+
+  txRange: document.getElementById("txRange"),
+  txInput: document.getElementById("txInput"),
+  tyRange: document.getElementById("tyRange"),
+  tyInput: document.getElementById("tyInput"),
+  rotRange: document.getElementById("rotRange"),
+  rotInput: document.getElementById("rotInput"),
+  sxRange: document.getElementById("sxRange"),
+  sxInput: document.getElementById("sxInput"),
+  syRange: document.getElementById("syRange"),
+  syInput: document.getElementById("syInput"),
+
+  pivotMode: document.getElementById("pivotMode"),
+  pivotX: document.getElementById("pivotX"),
+  pivotY: document.getElementById("pivotY"),
+  pickPivotBtn: document.getElementById("pickPivotBtn"),
+
+  animationMode: document.getElementById("animationMode"),
+  animSpeedRange: document.getElementById("animSpeedRange"),
+  animSpeedInput: document.getElementById("animSpeedInput"),
+  toggleAnimationBtn: document.getElementById("toggleAnimationBtn"),
+  stopAnimationBtn: document.getElementById("stopAnimationBtn"),
+
+  showOriginal: document.getElementById("showOriginal"),
+  showPseudo3D: document.getElementById("showPseudo3D"),
+  resetSelectedBtn: document.getElementById("resetSelectedBtn"),
+  resetAllBtn: document.getElementById("resetAllBtn"),
+  matrixOutput: document.getElementById("matrixOutput")
+};
+
+const testButtons = Array.from(document.querySelectorAll(".test-grid .test"));
+
+const state = {
+  shapes: [],
+  nextId: 1,
+  selectedId: null,
+  showOriginal: true,
+  showPseudo3D: false,
+  pickingPivot: false,
+  dragging: {
+    active: false,
+    pointerId: null,
+    offsetX: 0,
+    offsetY: 0
+  },
+  lastFrameTime: performance.now()
+};
+
+function getCanvasCenter() {
+  return {
+    x: canvas.width / 2,
+    y: canvas.height / 2
+  };
+}
+
+function worldToScreen(point) {
+  const center = getCanvasCenter();
+  return {
+    x: point.x + center.x,
+    y: point.y + center.y
+  };
+}
+
+function screenToWorld(point) {
+  const center = getCanvasCenter();
+  return {
+    x: point.x - center.x,
+    y: point.y - center.y
+  };
+}
+
+function resizeCanvas() {
+  const rect = canvas.getBoundingClientRect();
+  const width = Math.max(400, Math.floor(rect.width));
+  const height = Math.max(400, Math.floor(rect.height));
+
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+}
+
+function buildTemplate(type) {
+  if (type === "triangle") {
+    return {
+      label: "Triangle",
+      points: [
+        { x: 0, y: -72 },
+        { x: 84, y: 58 },
+        { x: -84, y: 58 }
+      ]
+    };
+  }
+
+  if (type === "pentagon") {
+    const points = [];
+    const radius = 78;
+
+    for (let i = 0; i < 5; i += 1) {
+      const angle = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
+      points.push({
+        x: radius * Math.cos(angle),
+        y: radius * Math.sin(angle)
+      });
+    }
+
+    return {
+      label: "Pentagon",
+      points
+    };
+  }
+
+  return {
+    label: "Rectangle",
+    points: [
+      { x: -85, y: -58 },
+      { x: 85, y: -58 },
+      { x: 85, y: 58 },
+      { x: -85, y: 58 }
+    ]
+  };
+}
+
+function createShape(type) {
+  const template = buildTemplate(type);
+  const index = state.shapes.length;
+  const offsetX = -120 + (index % 4) * 85;
+  const offsetY = -95 + Math.floor(index / 4) * 85;
+  const color = palette[index % palette.length];
+
+  return {
+    id: state.nextId++,
+    name: `${template.label} ${index + 1}`,
+    type,
+    points: template.points,
+    fill: color,
+    x: offsetX,
+    y: offsetY,
+    rotation: 0,
+    scaleX: 1,
+    scaleY: 1,
+    pivotMode: "center",
+    pivot: { x: 0, y: 0 },
+    animation: {
+      active: false,
+      mode: "none",
+      speed: 1,
+      phase: 0,
+      baseScaleX: 1,
+      baseScaleY: 1
+    },
+    initial: {
+      x: offsetX,
+      y: offsetY,
+      rotation: 0,
+      scaleX: 1,
+      scaleY: 1,
+      pivotMode: "center",
+      pivot: { x: 0, y: 0 }
+    }
+  };
+}
+
+function getSelectedShape() {
+  return state.shapes.find((shape) => shape.id === state.selectedId) || null;
+}
+
+function refreshShapeList() {
+  ui.shapeList.innerHTML = "";
+
+  for (const shape of state.shapes) {
+    const option = document.createElement("option");
+    option.value = String(shape.id);
+    option.textContent = shape.name;
+    if (shape.id === state.selectedId) {
+      option.selected = true;
+    }
+    ui.shapeList.appendChild(option);
+  }
+}
+
+function setPairValues(rangeElement, inputElement, value) {
+  rangeElement.value = String(value);
+  inputElement.value = String(value);
+}
+
+function syncControlsFromShape(shape) {
+  if (!shape) {
+    return;
+  }
+
+  setPairValues(ui.txRange, ui.txInput, Math.round(shape.x));
+  setPairValues(ui.tyRange, ui.tyInput, Math.round(shape.y));
+  setPairValues(ui.rotRange, ui.rotInput, Math.round(shape.rotation));
+  setPairValues(ui.sxRange, ui.sxInput, Number(shape.scaleX.toFixed(2)));
+  setPairValues(ui.syRange, ui.syInput, Number(shape.scaleY.toFixed(2)));
+
+  ui.pivotMode.value = shape.pivotMode;
+  ui.pivotX.value = String(Math.round(shape.pivot.x));
+  ui.pivotY.value = String(Math.round(shape.pivot.y));
+
+  ui.animationMode.value = shape.animation.mode;
+  setPairValues(
+    ui.animSpeedRange,
+    ui.animSpeedInput,
+    Number(shape.animation.speed.toFixed(1))
+  );
+
+  updatePivotInputsState();
+  updateAnimationButtonLabel();
+}
+
+function updateSelectedShapeLabel() {
+  const shape = getSelectedShape();
+
+  if (!shape) {
+    ui.selectedShapeLabel.textContent = "No shape selected.";
+    return;
+  }
+
+  ui.selectedShapeLabel.textContent = `Selected: ${shape.name}`;
+}
+
+function selectShapeById(id) {
+  state.selectedId = id;
+  refreshShapeList();
+  const shape = getSelectedShape();
+  syncControlsFromShape(shape);
+  updateSelectedShapeLabel();
+  updateMatrixDisplay();
+}
+
+function addShape(type) {
+  const newShape = createShape(type);
+  state.shapes.push(newShape);
+  selectShapeById(newShape.id);
+}
+
+function deleteSelectedShape() {
+  const selected = getSelectedShape();
+
+  if (!selected) {
+    return;
+  }
+
+  if (state.shapes.length === 1) {
+    resetShape(selected);
+    return;
+  }
+
+  state.shapes = state.shapes.filter((shape) => shape.id !== selected.id);
+
+  if (state.shapes.length > 0) {
+    state.selectedId = state.shapes[state.shapes.length - 1].id;
+  } else {
+    state.selectedId = null;
+  }
+
+  refreshShapeList();
+  updateSelectedShapeLabel();
+  syncControlsFromShape(getSelectedShape());
+  updateMatrixDisplay();
+}
+
+function resetShape(shape) {
+  shape.x = shape.initial.x;
+  shape.y = shape.initial.y;
+  shape.rotation = shape.initial.rotation;
+  shape.scaleX = shape.initial.scaleX;
+  shape.scaleY = shape.initial.scaleY;
+  shape.pivotMode = shape.initial.pivotMode;
+  shape.pivot = {
+    x: shape.initial.pivot.x,
+    y: shape.initial.pivot.y
+  };
+  shape.animation.active = false;
+  shape.animation.mode = "none";
+  shape.animation.speed = 1;
+  shape.animation.phase = 0;
+  shape.animation.baseScaleX = shape.scaleX;
+  shape.animation.baseScaleY = shape.scaleY;
+}
+
+function resetAllShapes() {
+  for (const shape of state.shapes) {
+    resetShape(shape);
+  }
+  syncControlsFromShape(getSelectedShape());
+  updateMatrixDisplay();
+}
+
+function updatePivotInputsState() {
+  const useCustomPivot = ui.pivotMode.value === "custom";
+  ui.pivotX.disabled = !useCustomPivot;
+  ui.pivotY.disabled = !useCustomPivot;
+}
+
+function updateAnimationButtonLabel() {
+  const shape = getSelectedShape();
+  if (!shape) {
+    ui.toggleAnimationBtn.textContent = "Start Animation";
+    return;
+  }
+
+  ui.toggleAnimationBtn.textContent = shape.animation.active
+    ? "Pause Animation"
+    : "Start Animation";
+}
+
+function bindRangeInput(rangeElement, numberElement, onChange) {
+  const applyChange = (value) => {
+    const parsed = Number(value);
+    if (Number.isNaN(parsed)) {
+      return;
+    }
+
+    rangeElement.value = String(parsed);
+    numberElement.value = String(parsed);
+    onChange(parsed);
+  };
+
+  rangeElement.addEventListener("input", () => applyChange(rangeElement.value));
+  numberElement.addEventListener("input", () => applyChange(numberElement.value));
+}
+
+function setupControlHandlers() {
+  ui.addShapeBtn.addEventListener("click", () => {
+    addShape(ui.shapeTemplate.value);
+  });
+
+  ui.deleteShapeBtn.addEventListener("click", () => {
+    deleteSelectedShape();
+  });
+
+  ui.shapeList.addEventListener("change", () => {
+    selectShapeById(Number(ui.shapeList.value));
+  });
+
+  bindRangeInput(ui.txRange, ui.txInput, (value) => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+    shape.x = value;
+    updateMatrixDisplay();
+  });
+
+  bindRangeInput(ui.tyRange, ui.tyInput, (value) => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+    shape.y = value;
+    updateMatrixDisplay();
+  });
+
+  bindRangeInput(ui.rotRange, ui.rotInput, (value) => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+    shape.rotation = normalizeAngle(value);
+    updateMatrixDisplay();
+  });
+
+  bindRangeInput(ui.sxRange, ui.sxInput, (value) => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+    shape.scaleX = clamp(value, 0.2, 3);
+    shape.animation.baseScaleX = shape.scaleX;
+    updateMatrixDisplay();
+  });
+
+  bindRangeInput(ui.syRange, ui.syInput, (value) => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+    shape.scaleY = clamp(value, 0.2, 3);
+    shape.animation.baseScaleY = shape.scaleY;
+    updateMatrixDisplay();
+  });
+
+  ui.pivotMode.addEventListener("change", () => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+
+    shape.pivotMode = ui.pivotMode.value;
+    updatePivotInputsState();
+    updateMatrixDisplay();
+  });
+
+  const updatePivotInputs = () => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+
+    shape.pivot.x = Number(ui.pivotX.value);
+    shape.pivot.y = Number(ui.pivotY.value);
+    updateMatrixDisplay();
+  };
+
+  ui.pivotX.addEventListener("input", updatePivotInputs);
+  ui.pivotY.addEventListener("input", updatePivotInputs);
+
+  ui.pickPivotBtn.addEventListener("click", () => {
+    state.pickingPivot = !state.pickingPivot;
+    ui.pickPivotBtn.textContent = state.pickingPivot
+      ? "Click Canvas To Set Pivot"
+      : "Pick Pivot On Canvas";
+    ui.pickPivotBtn.classList.toggle("secondary", !state.pickingPivot);
+  });
+
+  ui.animationMode.addEventListener("change", () => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+
+    shape.animation.mode = ui.animationMode.value;
+    if (shape.animation.mode === "none") {
+      shape.animation.active = false;
+    }
+    updateAnimationButtonLabel();
+  });
+
+  bindRangeInput(ui.animSpeedRange, ui.animSpeedInput, (value) => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+    shape.animation.speed = clamp(value, 0.2, 5);
+  });
+
+  ui.toggleAnimationBtn.addEventListener("click", () => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+
+    if (!shape.animation.active) {
+      if (shape.animation.mode === "none") {
+        shape.animation.mode = "rotate";
+        ui.animationMode.value = "rotate";
+      }
+      shape.animation.baseScaleX = shape.scaleX;
+      shape.animation.baseScaleY = shape.scaleY;
+      shape.animation.active = true;
+    } else {
+      shape.animation.active = false;
+    }
+
+    updateAnimationButtonLabel();
+  });
+
+  ui.stopAnimationBtn.addEventListener("click", () => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+    shape.animation.active = false;
+    updateAnimationButtonLabel();
+  });
+
+  ui.showOriginal.addEventListener("change", () => {
+    state.showOriginal = ui.showOriginal.checked;
+  });
+
+  ui.showPseudo3D.addEventListener("change", () => {
+    state.showPseudo3D = ui.showPseudo3D.checked;
+  });
+
+  ui.resetSelectedBtn.addEventListener("click", () => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+    resetShape(shape);
+    syncControlsFromShape(shape);
+    updateMatrixDisplay();
+  });
+
+  ui.resetAllBtn.addEventListener("click", () => {
+    resetAllShapes();
+  });
+
+  for (const button of testButtons) {
+    button.addEventListener("click", () => {
+      applySampleTest(Number(button.dataset.test));
+    });
+  }
+}
+
+function applySampleTest(testId) {
+  const shape = getSelectedShape();
+  if (!shape) {
+    return;
+  }
+
+  if (testId === 1) {
+    shape.x = 180;
+    shape.y = -60;
+    shape.rotation = 42;
+    shape.scaleX = 1.2;
+    shape.scaleY = 0.85;
+    shape.pivotMode = "center";
+    shape.animation.active = false;
+  } else if (testId === 2) {
+    shape.x = -165;
+    shape.y = 95;
+    shape.rotation = -27;
+    shape.scaleX = 1.65;
+    shape.scaleY = 1.18;
+    shape.pivotMode = "center";
+    shape.animation.active = false;
+  } else {
+    shape.x = 60;
+    shape.y = 45;
+    shape.rotation = 15;
+    shape.scaleX = 1;
+    shape.scaleY = 1;
+    shape.pivotMode = "custom";
+    shape.pivot = { x: -80, y: -70 };
+    shape.animation.mode = "rotate";
+    shape.animation.speed = 1.6;
+    shape.animation.active = true;
+  }
+
+  shape.animation.baseScaleX = shape.scaleX;
+  shape.animation.baseScaleY = shape.scaleY;
+  syncControlsFromShape(shape);
+  updateMatrixDisplay();
+}
+
+function identityMatrix() {
+  return [
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 0, 1]
+  ];
+}
+
+function multiplyMatrices(a, b) {
+  const result = identityMatrix();
+
+  for (let row = 0; row < 3; row += 1) {
+    for (let col = 0; col < 3; col += 1) {
+      result[row][col] =
+        a[row][0] * b[0][col] +
+        a[row][1] * b[1][col] +
+        a[row][2] * b[2][col];
+    }
+  }
+
+  return result;
+}
+
+function translationMatrix(tx, ty) {
+  return [
+    [1, 0, tx],
+    [0, 1, ty],
+    [0, 0, 1]
+  ];
+}
+
+function rotationMatrix(angleRadians) {
+  const cos = Math.cos(angleRadians);
+  const sin = Math.sin(angleRadians);
+  return [
+    [cos, -sin, 0],
+    [sin, cos, 0],
+    [0, 0, 1]
+  ];
+}
+
+function scaleMatrix(sx, sy) {
+  return [
+    [sx, 0, 0],
+    [0, sy, 0],
+    [0, 0, 1]
+  ];
+}
+
+function applyMatrix(matrix, point) {
+  return {
+    x: matrix[0][0] * point.x + matrix[0][1] * point.y + matrix[0][2],
+    y: matrix[1][0] * point.x + matrix[1][1] * point.y + matrix[1][2]
+  };
+}
+
+function invertAffineMatrix(matrix) {
+  const a = matrix[0][0];
+  const c = matrix[0][1];
+  const e = matrix[0][2];
+  const b = matrix[1][0];
+  const d = matrix[1][1];
+  const f = matrix[1][2];
+
+  const determinant = a * d - b * c;
+  if (Math.abs(determinant) < 1e-9) {
+    return null;
+  }
+
+  const inverseDet = 1 / determinant;
+  return [
+    [d * inverseDet, -c * inverseDet, (c * f - d * e) * inverseDet],
+    [-b * inverseDet, a * inverseDet, (b * e - a * f) * inverseDet],
+    [0, 0, 1]
+  ];
+}
+
+function getLocalPivot(shape) {
+  if (shape.pivotMode === "custom") {
+    return {
+      x: shape.pivot.x - shape.x,
+      y: shape.pivot.y - shape.y
+    };
+  }
+
+  return { x: 0, y: 0 };
+}
+
+function getShapeTransformMatrix(shape) {
+  const pivot = getLocalPivot(shape);
+  const angle = toRadians(shape.rotation);
+
+  let matrix = identityMatrix();
+  matrix = multiplyMatrices(matrix, translationMatrix(shape.x, shape.y));
+  matrix = multiplyMatrices(matrix, translationMatrix(pivot.x, pivot.y));
+  matrix = multiplyMatrices(matrix, rotationMatrix(angle));
+  matrix = multiplyMatrices(matrix, scaleMatrix(shape.scaleX, shape.scaleY));
+  matrix = multiplyMatrices(matrix, translationMatrix(-pivot.x, -pivot.y));
+
+  return matrix;
+}
+
+function updateMatrixDisplay() {
+  const shape = getSelectedShape();
+  if (!shape) {
+    ui.matrixOutput.textContent = "Select a shape to view matrix values.";
+    return;
+  }
+
+  const matrix = getShapeTransformMatrix(shape);
+  const rows = matrix.map(
+    (row) =>
+      row
+        .map((value) => value.toFixed(3).padStart(9, " "))
+        .join(" ")
+  );
+
+  const pivotText =
+    shape.pivotMode === "custom"
+      ? `Custom Pivot: (${shape.pivot.x.toFixed(1)}, ${shape.pivot.y.toFixed(1)})`
+      : "Pivot: Shape center";
+
+  ui.matrixOutput.textContent = `${rows.join("\n")}\n\n${pivotText}`;
+}
+
+function tracePolygonPath(points) {
+  if (points.length === 0) {
+    return;
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+
+  for (let i = 1; i < points.length; i += 1) {
+    ctx.lineTo(points[i].x, points[i].y);
+  }
+
+  ctx.closePath();
+}
+
+function drawGridAndAxes() {
+  const center = getCanvasCenter();
+  const step = 25;
+  const majorStep = 100;
+
+  const minX = -center.x;
+  const maxX = canvas.width - center.x;
+  const minY = -center.y;
+  const maxY = canvas.height - center.y;
+
+  ctx.setTransform(1, 0, 0, 1, center.x, center.y);
+  ctx.lineWidth = 1;
+
+  for (let x = Math.floor(minX / step) * step; x <= maxX; x += step) {
+    const isMajor = Math.abs(x % majorStep) < 0.1;
+    ctx.strokeStyle = isMajor ? "rgba(61, 93, 115, 0.24)" : "rgba(61, 93, 115, 0.12)";
+    ctx.beginPath();
+    ctx.moveTo(x, minY);
+    ctx.lineTo(x, maxY);
+    ctx.stroke();
+  }
+
+  for (let y = Math.floor(minY / step) * step; y <= maxY; y += step) {
+    const isMajor = Math.abs(y % majorStep) < 0.1;
+    ctx.strokeStyle = isMajor ? "rgba(61, 93, 115, 0.24)" : "rgba(61, 93, 115, 0.12)";
+    ctx.beginPath();
+    ctx.moveTo(minX, y);
+    ctx.lineTo(maxX, y);
+    ctx.stroke();
+  }
+
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "rgba(9, 39, 58, 0.66)";
+
+  ctx.beginPath();
+  ctx.moveTo(minX, 0);
+  ctx.lineTo(maxX, 0);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(0, minY);
+  ctx.lineTo(0, maxY);
+  ctx.stroke();
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = "rgba(23, 51, 69, 0.78)";
+  ctx.font = "12px 'IBM Plex Mono', monospace";
+  ctx.fillText("+X", canvas.width - 32, center.y - 8);
+  ctx.fillText("+Y", center.x + 8, 16);
+}
+
+function drawOriginalShape(shape) {
+  const center = getCanvasCenter();
+
+  ctx.setTransform(1, 0, 0, 1, center.x, center.y);
+  ctx.translate(shape.initial.x, shape.initial.y);
+
+  tracePolygonPath(shape.points);
+  ctx.fillStyle = "rgba(45, 70, 88, 0.1)";
+  ctx.fill();
+
+  ctx.lineWidth = 1.6;
+  ctx.setLineDash([7, 6]);
+  ctx.strokeStyle = "rgba(45, 70, 88, 0.75)";
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+function drawPseudo3DFaces(points) {
+  const depthX = 16;
+  const depthY = -12;
+
+  const offsetPoints = points.map((point) => ({
+    x: point.x + depthX,
+    y: point.y + depthY
+  }));
+
+  tracePolygonPath(offsetPoints);
+  ctx.fillStyle = "rgba(15, 35, 51, 0.22)";
+  ctx.fill();
+
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(15, 35, 51, 0.22)";
+
+  for (let i = 0; i < points.length; i += 1) {
+    const point = points[i];
+    const offsetPoint = offsetPoints[i];
+
+    ctx.beginPath();
+    ctx.moveTo(point.x, point.y);
+    ctx.lineTo(offsetPoint.x, offsetPoint.y);
+    ctx.stroke();
+  }
+}
+
+function drawTransformedShape(shape, selected) {
+  const center = getCanvasCenter();
+  const pivot = getLocalPivot(shape);
+
+  ctx.setTransform(1, 0, 0, 1, center.x, center.y);
+
+  // 1) Translation moves the shape in world space.
+  ctx.translate(shape.x, shape.y);
+  // 2) Move the origin to the chosen pivot, so rotation/scaling happen around it.
+  ctx.translate(pivot.x, pivot.y);
+  // 3) Rotate around the pivot.
+  ctx.rotate(toRadians(shape.rotation));
+  // 4) Scale around the pivot.
+  ctx.scale(shape.scaleX, shape.scaleY);
+  // 5) Move origin back after pivot-centered transforms.
+  ctx.translate(-pivot.x, -pivot.y);
+
+  if (state.showPseudo3D) {
+    drawPseudo3DFaces(shape.points);
+  }
+
+  tracePolygonPath(shape.points);
+  ctx.fillStyle = shape.fill;
+  ctx.globalAlpha = 0.9;
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  ctx.lineWidth = selected ? 3 : 2;
+  ctx.strokeStyle = selected ? "rgba(9, 39, 58, 0.95)" : "rgba(15, 44, 63, 0.75)";
+  ctx.stroke();
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+function drawCustomPivotMarker(shape) {
+  if (shape.pivotMode !== "custom") {
+    return;
+  }
+
+  const pivotScreen = worldToScreen(shape.pivot);
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.strokeStyle = "#0d8a85";
+  ctx.fillStyle = "rgba(13, 138, 133, 0.18)";
+  ctx.lineWidth = 2;
+
+  ctx.beginPath();
+  ctx.arc(pivotScreen.x, pivotScreen.y, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(pivotScreen.x - 12, pivotScreen.y);
+  ctx.lineTo(pivotScreen.x + 12, pivotScreen.y);
+  ctx.moveTo(pivotScreen.x, pivotScreen.y - 12);
+  ctx.lineTo(pivotScreen.x, pivotScreen.y + 12);
+  ctx.stroke();
+}
+
+function drawScene() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  drawGridAndAxes();
+
+  if (state.showOriginal) {
+    for (const shape of state.shapes) {
+      drawOriginalShape(shape);
+    }
+  }
+
+  for (const shape of state.shapes) {
+    drawTransformedShape(shape, shape.id === state.selectedId);
+  }
+
+  const selected = getSelectedShape();
+  if (selected) {
+    drawCustomPivotMarker(selected);
+  }
+
+  if (state.pickingPivot) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = "rgba(9, 39, 58, 0.86)";
+    ctx.font = "13px 'IBM Plex Mono', monospace";
+    ctx.fillText("Click canvas to set pivot", 12, 22);
+  }
+}
+
+function pointInPolygon(point, polygon) {
+  let inside = false;
+
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x;
+    const yi = polygon[i].y;
+    const xj = polygon[j].x;
+    const yj = polygon[j].y;
+
+    const intersects =
+      yi > point.y !== yj > point.y &&
+      point.x < ((xj - xi) * (point.y - yi)) / (yj - yi) + xi;
+
+    if (intersects) {
+      inside = !inside;
+    }
+  }
+
+  return inside;
+}
+
+function isPointInsideShape(worldPoint, shape) {
+  const matrix = getShapeTransformMatrix(shape);
+  const inverse = invertAffineMatrix(matrix);
+
+  if (!inverse) {
+    return false;
+  }
+
+  const localPoint = applyMatrix(inverse, worldPoint);
+  return pointInPolygon(localPoint, shape.points);
+}
+
+function pickTopmostShape(worldPoint) {
+  for (let i = state.shapes.length - 1; i >= 0; i -= 1) {
+    const shape = state.shapes[i];
+    if (isPointInsideShape(worldPoint, shape)) {
+      return shape;
+    }
+  }
+
+  return null;
+}
+
+function eventToWorld(event) {
+  const rect = canvas.getBoundingClientRect();
+  const screenPoint = {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top
+  };
+  return screenToWorld(screenPoint);
+}
+
+function setupCanvasInteraction() {
+  canvas.addEventListener("pointerdown", (event) => {
+    const selected = getSelectedShape();
+    const worldPoint = eventToWorld(event);
+
+    if (state.pickingPivot && selected) {
+      selected.pivotMode = "custom";
+      selected.pivot = {
+        x: Math.round(worldPoint.x),
+        y: Math.round(worldPoint.y)
+      };
+
+      state.pickingPivot = false;
+      ui.pickPivotBtn.textContent = "Pick Pivot On Canvas";
+      ui.pickPivotBtn.classList.add("secondary");
+
+      syncControlsFromShape(selected);
+      updateMatrixDisplay();
+      return;
+    }
+
+    const hitShape = pickTopmostShape(worldPoint);
+
+    if (!hitShape) {
+      state.dragging.active = false;
+      return;
+    }
+
+    selectShapeById(hitShape.id);
+
+    state.dragging.active = true;
+    state.dragging.pointerId = event.pointerId;
+    state.dragging.offsetX = worldPoint.x - hitShape.x;
+    state.dragging.offsetY = worldPoint.y - hitShape.y;
+
+    canvas.setPointerCapture(event.pointerId);
+  });
+
+  canvas.addEventListener("pointermove", (event) => {
+    const worldPoint = eventToWorld(event);
+
+    if (state.dragging.active && event.pointerId === state.dragging.pointerId) {
+      const selected = getSelectedShape();
+      if (!selected) {
+        return;
+      }
+
+      selected.x = Math.round(worldPoint.x - state.dragging.offsetX);
+      selected.y = Math.round(worldPoint.y - state.dragging.offsetY);
+
+      syncControlsFromShape(selected);
+      updateMatrixDisplay();
+      canvas.style.cursor = "grabbing";
+      return;
+    }
+
+    if (state.pickingPivot) {
+      canvas.style.cursor = "crosshair";
+      return;
+    }
+
+    const hovered = pickTopmostShape(worldPoint);
+    canvas.style.cursor = hovered ? "grab" : "default";
+  });
+
+  const stopDragging = (event) => {
+    if (!state.dragging.active || event.pointerId !== state.dragging.pointerId) {
+      return;
+    }
+
+    state.dragging.active = false;
+    state.dragging.pointerId = null;
+    canvas.style.cursor = "default";
+
+    if (canvas.hasPointerCapture(event.pointerId)) {
+      canvas.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  canvas.addEventListener("pointerup", stopDragging);
+  canvas.addEventListener("pointercancel", stopDragging);
+  canvas.addEventListener("pointerleave", (event) => {
+    if (!state.dragging.active) {
+      canvas.style.cursor = "default";
+      return;
+    }
+
+    stopDragging(event);
+  });
+}
+
+function updateAnimations(deltaSeconds) {
+  for (const shape of state.shapes) {
+    if (!shape.animation.active || shape.animation.mode === "none") {
+      continue;
+    }
+
+    if (shape.animation.mode === "rotate") {
+      shape.rotation = normalizeAngle(
+        shape.rotation + 70 * shape.animation.speed * deltaSeconds
+      );
+    }
+
+    if (shape.animation.mode === "scale") {
+      shape.animation.phase += deltaSeconds * shape.animation.speed * 3;
+      const pulseX = 1 + 0.34 * Math.sin(shape.animation.phase);
+      const pulseY = 1 + 0.34 * Math.cos(shape.animation.phase);
+      shape.scaleX = clamp(shape.animation.baseScaleX * pulseX, 0.2, 3);
+      shape.scaleY = clamp(shape.animation.baseScaleY * pulseY, 0.2, 3);
+    }
+  }
+
+  const selected = getSelectedShape();
+  if (selected && selected.animation.active) {
+    syncControlsFromShape(selected);
+    updateMatrixDisplay();
+  }
+}
+
+function frame(now) {
+  resizeCanvas();
+
+  const deltaSeconds = Math.min((now - state.lastFrameTime) / 1000, 0.08);
+  state.lastFrameTime = now;
+
+  updateAnimations(deltaSeconds);
+  drawScene();
+
+  requestAnimationFrame(frame);
+}
+
+function initialize() {
+  setupControlHandlers();
+  setupCanvasInteraction();
+
+  addShape("rectangle");
+  addShape("triangle");
+
+  selectShapeById(state.shapes[0].id);
+  updatePivotInputsState();
+  updateMatrixDisplay();
+
+  window.addEventListener("resize", resizeCanvas);
+  resizeCanvas();
+  requestAnimationFrame(frame);
+}
+
+initialize();
