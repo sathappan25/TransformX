@@ -259,3 +259,20 @@ select#shapeList {
 .legend span {
   display: flex;
   align-items: center;
+  gap: 0.36rem;
+}
+
+.swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.swatch-original {
+  background: #334f63;
+  border: 2px dashed #d8e3ea;
+}
+
+.swatch-transformed {
+  background: var(--accent);

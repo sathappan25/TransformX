@@ -863,3 +863,61 @@ function drawCustomPivotMarker(shape) {
   ctx.stroke();
 }
 
+function drawScene() {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  drawGridAndAxes();
+
+  if (state.showOriginal) {
+    for (const shape of state.shapes) {
+      drawOriginalShape(shape);
+    }
+  }
+
+  for (const shape of state.shapes) {
+    drawTransformedShape(shape, shape.id === state.selectedId);
+  }
+
+  const selected = getSelectedShape();
+  if (selected) {
+    drawCustomPivotMarker(selected);
+  }
+
+  if (state.pickingPivot) {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.fillStyle = "rgba(9, 39, 58, 0.86)";
+    ctx.font = "13px 'IBM Plex Mono', monospace";
+    ctx.fillText("Click canvas to set pivot", 12, 22);
+  }
+}
+
+function pointInPolygon(point, polygon) {
+  let inside = false;
+
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].x;
+    const yi = polygon[i].y;
+    const xj = polygon[j].x;
+    const yj = polygon[j].y;
+
+    const intersects =
+      yi > point.y !== yj > point.y &&
+      point.x < ((xj - xi) * (point.y - yi)) / (yj - yi) + xi;
+
+    if (intersects) {
+      inside = !inside;
+    }
+  }
+
+  return inside;
+}
+
+function isPointInsideShape(worldPoint, shape) {
+  const matrix = getShapeTransformMatrix(shape);
+  const inverse = invertAffineMatrix(matrix);
+
+  if (!inverse) {
+    return false;
+  }
+
