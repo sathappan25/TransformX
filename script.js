@@ -171,3 +171,61 @@ function createShape(type) {
     scaleY: 1,
     pivotMode: "center",
     pivot: { x: 0, y: 0 },
+    animation: {
+      active: false,
+      mode: "none",
+      speed: 1,
+      phase: 0,
+      baseScaleX: 1,
+      baseScaleY: 1
+    },
+    initial: {
+      x: offsetX,
+      y: offsetY,
+      rotation: 0,
+      scaleX: 1,
+      scaleY: 1,
+      pivotMode: "center",
+      pivot: { x: 0, y: 0 }
+    }
+  };
+}
+
+function getSelectedShape() {
+  return state.shapes.find((shape) => shape.id === state.selectedId) || null;
+}
+
+function refreshShapeList() {
+  ui.shapeList.innerHTML = "";
+
+  for (const shape of state.shapes) {
+    const option = document.createElement("option");
+    option.value = String(shape.id);
+    option.textContent = shape.name;
+    if (shape.id === state.selectedId) {
+      option.selected = true;
+    }
+    ui.shapeList.appendChild(option);
+  }
+}
+
+function setPairValues(rangeElement, inputElement, value) {
+  rangeElement.value = String(value);
+  inputElement.value = String(value);
+}
+
+function syncControlsFromShape(shape) {
+  if (!shape) {
+    return;
+  }
+
+  setPairValues(ui.txRange, ui.txInput, Math.round(shape.x));
+  setPairValues(ui.tyRange, ui.tyInput, Math.round(shape.y));
+  setPairValues(ui.rotRange, ui.rotInput, Math.round(shape.rotation));
+  setPairValues(ui.sxRange, ui.sxInput, Number(shape.scaleX.toFixed(2)));
+  setPairValues(ui.syRange, ui.syInput, Number(shape.scaleY.toFixed(2)));
+
+  ui.pivotMode.value = shape.pivotMode;
+  ui.pivotX.value = String(Math.round(shape.pivot.x));
+  ui.pivotY.value = String(Math.round(shape.pivot.y));
+
