@@ -207,3 +207,20 @@ select#shapeList {
 .explanation p {
   margin: 0.36rem 0;
   color: var(--text-soft);
+  font-size: 0.83rem;
+  line-height: 1.35;
+}
+
+.test-grid {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.canvas-panel {
+  border-radius: 20px;
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(4px);
+  padding: 0.9rem;
+  display: grid;

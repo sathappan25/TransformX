@@ -690,3 +690,61 @@ function updateMatrixDisplay() {
       : "Pivot: Shape center";
 
   ui.matrixOutput.textContent = `${rows.join("\n")}\n\n${pivotText}`;
+}
+
+function tracePolygonPath(points) {
+  if (points.length === 0) {
+    return;
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+
+  for (let i = 1; i < points.length; i += 1) {
+    ctx.lineTo(points[i].x, points[i].y);
+  }
+
+  ctx.closePath();
+}
+
+function drawGridAndAxes() {
+  const center = getCanvasCenter();
+  const step = 25;
+  const majorStep = 100;
+
+  const minX = -center.x;
+  const maxX = canvas.width - center.x;
+  const minY = -center.y;
+  const maxY = canvas.height - center.y;
+
+  ctx.setTransform(1, 0, 0, 1, center.x, center.y);
+  ctx.lineWidth = 1;
+
+  for (let x = Math.floor(minX / step) * step; x <= maxX; x += step) {
+    const isMajor = Math.abs(x % majorStep) < 0.1;
+    ctx.strokeStyle = isMajor ? "rgba(61, 93, 115, 0.24)" : "rgba(61, 93, 115, 0.12)";
+    ctx.beginPath();
+    ctx.moveTo(x, minY);
+    ctx.lineTo(x, maxY);
+    ctx.stroke();
+  }
+
+  for (let y = Math.floor(minY / step) * step; y <= maxY; y += step) {
+    const isMajor = Math.abs(y % majorStep) < 0.1;
+    ctx.strokeStyle = isMajor ? "rgba(61, 93, 115, 0.24)" : "rgba(61, 93, 115, 0.12)";
+    ctx.beginPath();
+    ctx.moveTo(minX, y);
+    ctx.lineTo(maxX, y);
+    ctx.stroke();
+  }
+
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "rgba(9, 39, 58, 0.66)";
+
+  ctx.beginPath();
+  ctx.moveTo(minX, 0);
+  ctx.lineTo(maxX, 0);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(0, minY);
