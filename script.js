@@ -805,3 +805,61 @@ function drawPseudo3DFaces(points) {
 }
 
 function drawTransformedShape(shape, selected) {
+  const center = getCanvasCenter();
+  const pivot = getLocalPivot(shape);
+
+  ctx.setTransform(1, 0, 0, 1, center.x, center.y);
+
+  // 1) Translation moves the shape in world space.
+  ctx.translate(shape.x, shape.y);
+  // 2) Move the origin to the chosen pivot, so rotation/scaling happen around it.
+  ctx.translate(pivot.x, pivot.y);
+  // 3) Rotate around the pivot.
+  ctx.rotate(toRadians(shape.rotation));
+  // 4) Scale around the pivot.
+  ctx.scale(shape.scaleX, shape.scaleY);
+  // 5) Move origin back after pivot-centered transforms.
+  ctx.translate(-pivot.x, -pivot.y);
+
+  if (state.showPseudo3D) {
+    drawPseudo3DFaces(shape.points);
+  }
+
+  tracePolygonPath(shape.points);
+  ctx.fillStyle = shape.fill;
+  ctx.globalAlpha = 0.9;
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  ctx.lineWidth = selected ? 3 : 2;
+  ctx.strokeStyle = selected ? "rgba(9, 39, 58, 0.95)" : "rgba(15, 44, 63, 0.75)";
+  ctx.stroke();
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+function drawCustomPivotMarker(shape) {
+  if (shape.pivotMode !== "custom") {
+    return;
+  }
+
+  const pivotScreen = worldToScreen(shape.pivot);
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.strokeStyle = "#0d8a85";
+  ctx.fillStyle = "rgba(13, 138, 133, 0.18)";
+  ctx.lineWidth = 2;
+
+  ctx.beginPath();
+  ctx.arc(pivotScreen.x, pivotScreen.y, 8, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(pivotScreen.x - 12, pivotScreen.y);
+  ctx.lineTo(pivotScreen.x + 12, pivotScreen.y);
+  ctx.moveTo(pivotScreen.x, pivotScreen.y - 12);
+  ctx.lineTo(pivotScreen.x, pivotScreen.y + 12);
+  ctx.stroke();
+}
+

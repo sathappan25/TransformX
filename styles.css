@@ -242,3 +242,20 @@ select#shapeList {
   margin: 0;
   font-size: 1.3rem;
 }
+
+.canvas-header p {
+  margin: 0.35rem 0 0;
+  color: var(--text-soft);
+  line-height: 1.35;
+}
+
+.legend {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.84rem;
+  color: var(--text-soft);
+}
+
+.legend span {
+  display: flex;
+  align-items: center;
