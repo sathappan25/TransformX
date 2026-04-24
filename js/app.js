@@ -649,7 +649,7 @@ function updateMatrixDisplay() {
   ui.matrixOutput.textContent = `${rows.join("\n")}\n\nCamera Distance: ${state.cameraDistance.toFixed(1)}`;
 }
 
-function projectPoint(point) {
+function projectPoint(point, zLiftFactor = 0) {
   const depth = state.cameraDistance + point.z;
   if (depth < 45) {
     return null;
@@ -660,7 +660,7 @@ function projectPoint(point) {
 
   // Keep default orientation straight while still visualizing z-depth.
   const zSkewX = point.z * 0.28;
-  const zSkewY = 0;
+  const zSkewY = point.z * zLiftFactor;
 
   return {
     x: center.x + (point.x + zSkewX) * perspective,
@@ -669,9 +669,9 @@ function projectPoint(point) {
   };
 }
 
-function drawProjectedLine(pointA, pointB, color, width = 1.8) {
-  const start = projectPoint(pointA);
-  const end = projectPoint(pointB);
+function drawProjectedLine(pointA, pointB, color, width = 1.8, zLiftFactor = 0) {
+  const start = projectPoint(pointA, zLiftFactor);
+  const end = projectPoint(pointB, zLiftFactor);
 
   if (!start || !end) {
     return;
@@ -688,14 +688,15 @@ function drawProjectedLine(pointA, pointB, color, width = 1.8) {
 function drawAxes() {
   const axisLength = 250;
   const origin = { x: 0, y: 0, z: 0 };
+  const zLiftFactor = -0.26;
 
   drawProjectedLine(origin, { x: axisLength, y: 0, z: 0 }, "rgba(156, 16, 53, 0.88)", 2.3);
   drawProjectedLine(origin, { x: 0, y: axisLength, z: 0 }, "rgba(122, 34, 62, 0.82)", 2.3);
-  drawProjectedLine(origin, { x: 0, y: 0, z: axisLength }, "rgba(198, 20, 68, 0.98)", 2.8);
+  drawProjectedLine(origin, { x: 0, y: 0, z: axisLength }, "rgba(198, 20, 68, 0.98)", 3.2, zLiftFactor);
 
   const xTip = projectPoint({ x: axisLength, y: 0, z: 0 });
   const yTip = projectPoint({ x: 0, y: axisLength, z: 0 });
-  const zTip = projectPoint({ x: 0, y: 0, z: axisLength });
+  const zTip = projectPoint({ x: 0, y: 0, z: axisLength }, zLiftFactor);
 
   ctx.fillStyle = "rgba(20, 33, 43, 0.85)";
   ctx.font = "12px 'IBM Plex Mono', monospace";
@@ -753,8 +754,6 @@ function renderScene() {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  drawAxes();
-
   const drawQueue = state.objects
     .map((object3d) => {
       const transformed = transformVertices(object3d);
@@ -771,6 +770,9 @@ function renderScene() {
   for (const entry of drawQueue) {
     drawObjectWireframe(entry, entry.object3d.id === state.selectedId);
   }
+
+  // Draw axes after objects so axis lines remain visible in crowded scenes.
+  drawAxes();
 
   if (drawQueue.length === 0) {
     ctx.fillStyle = "rgba(20, 33, 43, 0.75)";
