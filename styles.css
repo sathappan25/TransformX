@@ -224,3 +224,21 @@ select#shapeList {
   backdrop-filter: blur(4px);
   padding: 0.9rem;
   display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 0.75rem;
+  min-height: calc(100vh - 2.4rem);
+}
+
+.canvas-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  border-bottom: 1px dashed rgba(20, 33, 43, 0.16);
+  padding-bottom: 0.6rem;
+}
+
+.canvas-header h2 {
+  margin: 0;
+  font-size: 1.3rem;
+}

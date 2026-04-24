@@ -748,3 +748,60 @@ function drawGridAndAxes() {
 
   ctx.beginPath();
   ctx.moveTo(0, minY);
+  ctx.lineTo(0, maxY);
+  ctx.stroke();
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = "rgba(23, 51, 69, 0.78)";
+  ctx.font = "12px 'IBM Plex Mono', monospace";
+  ctx.fillText("+X", canvas.width - 32, center.y - 8);
+  ctx.fillText("+Y", center.x + 8, 16);
+}
+
+function drawOriginalShape(shape) {
+  const center = getCanvasCenter();
+
+  ctx.setTransform(1, 0, 0, 1, center.x, center.y);
+  ctx.translate(shape.initial.x, shape.initial.y);
+
+  tracePolygonPath(shape.points);
+  ctx.fillStyle = "rgba(45, 70, 88, 0.1)";
+  ctx.fill();
+
+  ctx.lineWidth = 1.6;
+  ctx.setLineDash([7, 6]);
+  ctx.strokeStyle = "rgba(45, 70, 88, 0.75)";
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+}
+
+function drawPseudo3DFaces(points) {
+  const depthX = 16;
+  const depthY = -12;
+
+  const offsetPoints = points.map((point) => ({
+    x: point.x + depthX,
+    y: point.y + depthY
+  }));
+
+  tracePolygonPath(offsetPoints);
+  ctx.fillStyle = "rgba(15, 35, 51, 0.22)";
+  ctx.fill();
+
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(15, 35, 51, 0.22)";
+
+  for (let i = 0; i < points.length; i += 1) {
+    const point = points[i];
+    const offsetPoint = offsetPoints[i];
+
+    ctx.beginPath();
+    ctx.moveTo(point.x, point.y);
+    ctx.lineTo(offsetPoint.x, offsetPoint.y);
+    ctx.stroke();
+  }
+}
+
+function drawTransformedShape(shape, selected) {
