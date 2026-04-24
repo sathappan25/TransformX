@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TransformX | Geometric Transformations</title>
+    <title>TransformX | 3D Transformations</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -16,32 +16,32 @@
     <div class="app-shell">
       <aside class="sidebar">
         <header class="brand">
-          <h1>TransformX</h1>
-          <p>Visualize translation, rotation, and scaling in real time.</p>
+          <h1>TransformX 3D</h1>
+          <p>Explore translation, rotation, and scaling on 3D solids in real time.</p>
         </header>
 
         <section class="panel">
-          <h2>Shape Setup</h2>
-          <label for="shapeTemplate">New shape</label>
+          <h2>Object Setup</h2>
+          <label for="objectTemplate">New object</label>
           <div class="row">
-            <select id="shapeTemplate">
-              <option value="rectangle">Rectangle</option>
-              <option value="triangle">Triangle</option>
-              <option value="pentagon">Pentagon</option>
+            <select id="objectTemplate">
+              <option value="cube">Cube</option>
+              <option value="cuboid">Cuboid</option>
+              <option value="cone">Cone</option>
             </select>
-            <button id="addShapeBtn" class="btn">Add</button>
+            <button id="addObjectBtn" class="btn">Add</button>
           </div>
 
           <div class="row space-top">
-            <label for="shapeList">Active shapes</label>
-            <button id="deleteShapeBtn" class="btn danger">Delete</button>
+            <label for="objectList">Active objects</label>
+            <button id="deleteObjectBtn" class="btn danger">Delete</button>
           </div>
-          <select id="shapeList" size="4"></select>
-          <p id="selectedShapeLabel" class="muted">No shape selected.</p>
+          <select id="objectList" size="4"></select>
+          <p id="selectedObjectLabel" class="muted">No object selected.</p>
         </section>
 
         <section class="panel">
-          <h2>Transform Controls</h2>
+          <h2>Translation (3D)</h2>
 
           <div class="control">
             <label for="txRange">Translate X</label>
@@ -60,12 +60,44 @@
           </div>
 
           <div class="control">
-            <label for="rotRange">Rotation (degrees)</label>
+            <label for="tzRange">Translate Z</label>
             <div class="pair">
-              <input id="rotRange" type="range" min="-180" max="180" step="1" value="0" />
-              <input id="rotInput" type="number" min="-180" max="180" step="1" value="0" />
+              <input id="tzRange" type="range" min="-280" max="360" step="1" value="0" />
+              <input id="tzInput" type="number" min="-280" max="360" step="1" value="0" />
             </div>
           </div>
+        </section>
+
+        <section class="panel">
+          <h2>Rotation (3D)</h2>
+
+          <div class="control">
+            <label for="rxRange">Rotate X (degrees)</label>
+            <div class="pair">
+              <input id="rxRange" type="range" min="-180" max="180" step="1" value="0" />
+              <input id="rxInput" type="number" min="-180" max="180" step="1" value="0" />
+            </div>
+          </div>
+
+          <div class="control">
+            <label for="ryRange">Rotate Y (degrees)</label>
+            <div class="pair">
+              <input id="ryRange" type="range" min="-180" max="180" step="1" value="0" />
+              <input id="ryInput" type="number" min="-180" max="180" step="1" value="0" />
+            </div>
+          </div>
+
+          <div class="control">
+            <label for="rzRange">Rotate Z (degrees)</label>
+            <div class="pair">
+              <input id="rzRange" type="range" min="-180" max="180" step="1" value="0" />
+              <input id="rzInput" type="number" min="-180" max="180" step="1" value="0" />
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Scaling (3D)</h2>
 
           <div class="control">
             <label for="sxRange">Scale X</label>
@@ -82,56 +114,30 @@
               <input id="syInput" type="number" min="0.2" max="3" step="0.01" value="1" />
             </div>
           </div>
-        </section>
-
-        <section class="panel">
-          <h2>Pivot</h2>
-          <label for="pivotMode">Rotation pivot mode</label>
-          <select id="pivotMode">
-            <option value="center">Shape center</option>
-            <option value="custom">Custom pivot</option>
-          </select>
-
-          <div class="pair space-top">
-            <input id="pivotX" type="number" min="-500" max="500" step="1" value="0" />
-            <input id="pivotY" type="number" min="-500" max="500" step="1" value="0" />
-          </div>
-          <button id="pickPivotBtn" class="btn secondary space-top">Pick Pivot On Canvas</button>
-        </section>
-
-        <section class="panel">
-          <h2>Animation</h2>
-          <label for="animationMode">Animation type</label>
-          <select id="animationMode">
-            <option value="none">None</option>
-            <option value="rotate">Continuous Rotation</option>
-            <option value="scale">Scaling Pulse</option>
-          </select>
 
           <div class="control">
-            <label for="animSpeedRange">Speed</label>
+            <label for="szRange">Scale Z</label>
             <div class="pair">
-              <input id="animSpeedRange" type="range" min="0.2" max="5" step="0.1" value="1" />
-              <input id="animSpeedInput" type="number" min="0.2" max="5" step="0.1" value="1" />
+              <input id="szRange" type="range" min="0.2" max="3" step="0.01" value="1" />
+              <input id="szInput" type="number" min="0.2" max="3" step="0.01" value="1" />
             </div>
-          </div>
-
-          <div class="row">
-            <button id="toggleAnimationBtn" class="btn">Start Animation</button>
-            <button id="stopAnimationBtn" class="btn secondary">Stop</button>
           </div>
         </section>
 
         <section class="panel">
-          <h2>Display</h2>
+          <h2>Scene Settings</h2>
           <label class="checkbox">
-            <input id="showOriginal" type="checkbox" checked />
-            Show original outline
+            <input id="showAxes" type="checkbox" checked />
+            Show 3D axes
           </label>
-          <label class="checkbox">
-            <input id="showPseudo3D" type="checkbox" />
-            Pseudo 3D preview
-          </label>
+
+          <div class="control">
+            <label for="cameraRange">Camera Distance</label>
+            <div class="pair">
+              <input id="cameraRange" type="range" min="280" max="1200" step="5" value="620" />
+              <input id="cameraInput" type="number" min="280" max="1200" step="5" value="620" />
+            </div>
+          </div>
 
           <div class="actions space-top">
             <button id="resetSelectedBtn" class="btn secondary">Reset Selected</button>
@@ -147,28 +153,27 @@
         <section class="panel">
           <h2>Sample Test Values</h2>
           <div class="test-grid">
-            <button class="btn test" data-test="1">Slide + Rotate</button>
-            <button class="btn test" data-test="2">Stretch + Tilt</button>
-            <button class="btn test" data-test="3">Custom Pivot Spin</button>
+            <button class="btn test" data-test="1">Orbit Tilt</button>
+            <button class="btn test" data-test="2">Wide Stretch</button>
+            <button class="btn test" data-test="3">Depth Push</button>
           </div>
         </section>
 
         <section class="panel explanation">
           <h2>How The Math Works</h2>
           <p>
-            Translation shifts points by offsets: (x', y') = (x + tx, y + ty).
+            Translation shifts points in 3D: (x', y', z') = (x + tx, y + ty, z + tz).
           </p>
           <p>
-            Rotation around a pivot uses trigonometry:
-            x' = x cos(theta) - y sin(theta),
-            y' = x sin(theta) + y cos(theta).
+            3D rotation uses one matrix for each axis (X, Y, Z), then combines them.
           </p>
           <p>
-            Scaling stretches or shrinks values:
-            (x', y') = (sx * x, sy * y).
+            Scaling changes object size per axis:
+            (x', y', z') = (sx * x, sy * y, sz * z).
           </p>
           <p>
-            Combined transformations are represented with one 3x3 matrix, where order matters.
+            Perspective projection maps 3D to canvas using
+            screen scale = cameraDistance / (cameraDistance + z).
           </p>
         </section>
       </aside>
@@ -176,18 +181,18 @@
       <main class="canvas-panel">
         <div class="canvas-header">
           <div>
-            <h2>Canvas Workspace</h2>
+            <h2>3D Workspace</h2>
             <p>
-              Drag transformed shapes directly. Use Pick Pivot to click a custom rotation point.
+              Transform cube, cuboid, and cone using 3-axis controls. Animation and 2D-only
+              features are removed.
             </p>
           </div>
           <div class="legend">
-            <span><i class="swatch swatch-original"></i>Original</span>
-            <span><i class="swatch swatch-transformed"></i>Transformed</span>
+            <span><i class="swatch swatch-transformed"></i>3D Wireframe Object</span>
           </div>
         </div>
         <div class="canvas-frame">
-          <canvas id="sceneCanvas" aria-label="Transformation drawing canvas"></canvas>
+          <canvas id="sceneCanvas" aria-label="3D transformation drawing canvas"></canvas>
         </div>
       </main>
     </div>

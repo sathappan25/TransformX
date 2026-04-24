@@ -30,7 +30,8 @@
   align-items: center;
 }
 
-select#shapeList {
+select#shapeList,
+select#objectList {
   width: 100%;
   min-height: 86px;
   margin-top: 0.35rem;

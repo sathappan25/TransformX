@@ -5,36 +5,36 @@ const canvas = document.getElementById("sceneCanvas");
 const ctx = canvas.getContext("2d");
 
 const ui = {
-  shapeTemplate: document.getElementById("shapeTemplate"),
-  addShapeBtn: document.getElementById("addShapeBtn"),
-  deleteShapeBtn: document.getElementById("deleteShapeBtn"),
-  shapeList: document.getElementById("shapeList"),
-  selectedShapeLabel: document.getElementById("selectedShapeLabel"),
+  objectTemplate: document.getElementById("objectTemplate"),
+  addObjectBtn: document.getElementById("addObjectBtn"),
+  deleteObjectBtn: document.getElementById("deleteObjectBtn"),
+  objectList: document.getElementById("objectList"),
+  selectedObjectLabel: document.getElementById("selectedObjectLabel"),
 
   txRange: document.getElementById("txRange"),
   txInput: document.getElementById("txInput"),
   tyRange: document.getElementById("tyRange"),
   tyInput: document.getElementById("tyInput"),
-  rotRange: document.getElementById("rotRange"),
-  rotInput: document.getElementById("rotInput"),
+  tzRange: document.getElementById("tzRange"),
+  tzInput: document.getElementById("tzInput"),
+
+  rxRange: document.getElementById("rxRange"),
+  rxInput: document.getElementById("rxInput"),
+  ryRange: document.getElementById("ryRange"),
+  ryInput: document.getElementById("ryInput"),
+  rzRange: document.getElementById("rzRange"),
+  rzInput: document.getElementById("rzInput"),
+
   sxRange: document.getElementById("sxRange"),
   sxInput: document.getElementById("sxInput"),
   syRange: document.getElementById("syRange"),
   syInput: document.getElementById("syInput"),
+  szRange: document.getElementById("szRange"),
+  szInput: document.getElementById("szInput"),
 
-  pivotMode: document.getElementById("pivotMode"),
-  pivotX: document.getElementById("pivotX"),
-  pivotY: document.getElementById("pivotY"),
-  pickPivotBtn: document.getElementById("pickPivotBtn"),
-
-  animationMode: document.getElementById("animationMode"),
-  animSpeedRange: document.getElementById("animSpeedRange"),
-  animSpeedInput: document.getElementById("animSpeedInput"),
-  toggleAnimationBtn: document.getElementById("toggleAnimationBtn"),
-  stopAnimationBtn: document.getElementById("stopAnimationBtn"),
-
-  showOriginal: document.getElementById("showOriginal"),
-  showPseudo3D: document.getElementById("showPseudo3D"),
+  showAxes: document.getElementById("showAxes"),
+  cameraRange: document.getElementById("cameraRange"),
+  cameraInput: document.getElementById("cameraInput"),
   resetSelectedBtn: document.getElementById("resetSelectedBtn"),
   resetAllBtn: document.getElementById("resetAllBtn"),
   matrixOutput: document.getElementById("matrixOutput")
@@ -43,19 +43,11 @@ const ui = {
 const testButtons = Array.from(document.querySelectorAll(".test-grid .test"));
 
 const state = {
-  shapes: [],
+  objects: [],
   nextId: 1,
   selectedId: null,
-  showOriginal: true,
-  showPseudo3D: false,
-  pickingPivot: false,
-  dragging: {
-    active: false,
-    pointerId: null,
-    offsetX: 0,
-    offsetY: 0
-  },
-  lastFrameTime: performance.now()
+  showAxes: true,
+  cameraDistance: 620
 };
 
 function getCanvasCenter() {
@@ -65,26 +57,10 @@ function getCanvasCenter() {
   };
 }
 
-function worldToScreen(point) {
-  const center = getCanvasCenter();
-  return {
-    x: point.x + center.x,
-    y: point.y + center.y
-  };
-}
-
-function screenToWorld(point) {
-  const center = getCanvasCenter();
-  return {
-    x: point.x - center.x,
-    y: point.y - center.y
-  };
-}
-
 function resizeCanvas() {
   const rect = canvas.getBoundingClientRect();
-  const width = Math.max(400, Math.floor(rect.width));
-  const height = Math.max(400, Math.floor(rect.height));
+  const width = Math.max(460, Math.floor(rect.width));
+  const height = Math.max(420, Math.floor(rect.height));
 
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
@@ -92,102 +68,158 @@ function resizeCanvas() {
   }
 }
 
-function buildTemplate(type) {
-  if (type === "triangle") {
-    return {
-      label: "Triangle",
-      points: [
-        { x: 0, y: -72 },
-        { x: 84, y: 58 },
-        { x: -84, y: 58 }
-      ]
-    };
-  }
-
-  if (type === "pentagon") {
-    const points = [];
-    const radius = 78;
-
-    for (let i = 0; i < 5; i += 1) {
-      const angle = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
-      points.push({
-        x: radius * Math.cos(angle),
-        y: radius * Math.sin(angle)
-      });
-    }
-
-    return {
-      label: "Pentagon",
-      points
-    };
-  }
+function createCubeGeometry(size = 140) {
+  const s = size / 2;
 
   return {
-    label: "Rectangle",
-    points: [
-      { x: -85, y: -58 },
-      { x: 85, y: -58 },
-      { x: 85, y: 58 },
-      { x: -85, y: 58 }
+    vertices: [
+      { x: -s, y: -s, z: -s },
+      { x: s, y: -s, z: -s },
+      { x: s, y: s, z: -s },
+      { x: -s, y: s, z: -s },
+      { x: -s, y: -s, z: s },
+      { x: s, y: -s, z: s },
+      { x: s, y: s, z: s },
+      { x: -s, y: s, z: s }
+    ],
+    edges: [
+      [0, 1], [1, 2], [2, 3], [3, 0],
+      [4, 5], [5, 6], [6, 7], [7, 4],
+      [0, 4], [1, 5], [2, 6], [3, 7]
     ]
   };
 }
 
-function createShape(type) {
+function createCuboidGeometry(width = 190, height = 120, depth = 90) {
+  const hx = width / 2;
+  const hy = height / 2;
+  const hz = depth / 2;
+
+  return {
+    vertices: [
+      { x: -hx, y: -hy, z: -hz },
+      { x: hx, y: -hy, z: -hz },
+      { x: hx, y: hy, z: -hz },
+      { x: -hx, y: hy, z: -hz },
+      { x: -hx, y: -hy, z: hz },
+      { x: hx, y: -hy, z: hz },
+      { x: hx, y: hy, z: hz },
+      { x: -hx, y: hy, z: hz }
+    ],
+    edges: [
+      [0, 1], [1, 2], [2, 3], [3, 0],
+      [4, 5], [5, 6], [6, 7], [7, 4],
+      [0, 4], [1, 5], [2, 6], [3, 7]
+    ]
+  };
+}
+
+function createConeGeometry(radius = 70, height = 170, segments = 18) {
+  const vertices = [{ x: 0, y: height / 2, z: 0 }];
+  const edges = [];
+
+  for (let i = 0; i < segments; i += 1) {
+    const theta = (i / segments) * Math.PI * 2;
+    vertices.push({
+      x: radius * Math.cos(theta),
+      y: -height / 2,
+      z: radius * Math.sin(theta)
+    });
+  }
+
+  const centerIndex = vertices.length;
+  vertices.push({ x: 0, y: -height / 2, z: 0 });
+
+  for (let i = 0; i < segments; i += 1) {
+    const rim = 1 + i;
+    const next = 1 + ((i + 1) % segments);
+
+    edges.push([0, rim]);
+    edges.push([rim, next]);
+    edges.push([centerIndex, rim]);
+  }
+
+  return {
+    vertices,
+    edges
+  };
+}
+
+function buildTemplate(type) {
+  if (type === "cuboid") {
+    return {
+      label: "Cuboid",
+      ...createCuboidGeometry()
+    };
+  }
+
+  if (type === "cone") {
+    return {
+      label: "Cone",
+      ...createConeGeometry()
+    };
+  }
+
+  return {
+    label: "Cube",
+    ...createCubeGeometry()
+  };
+}
+
+function createObject(type) {
   const template = buildTemplate(type);
-  const index = state.shapes.length;
-  const offsetX = -120 + (index % 4) * 85;
-  const offsetY = -95 + Math.floor(index / 4) * 85;
-  const color = palette[index % palette.length];
+  const index = state.objects.length;
+  const column = index % 3;
+  const row = Math.floor(index / 3);
+  const tx = -190 + column * 190;
+  const ty = 0;
+  const tz = row * 120;
 
   return {
     id: state.nextId++,
     name: `${template.label} ${index + 1}`,
     type,
-    points: template.points,
-    fill: color,
-    x: offsetX,
-    y: offsetY,
-    rotation: 0,
-    scaleX: 1,
-    scaleY: 1,
-    pivotMode: "center",
-    pivot: { x: 0, y: 0 },
-    animation: {
-      active: false,
-      mode: "none",
-      speed: 1,
-      phase: 0,
-      baseScaleX: 1,
-      baseScaleY: 1
-    },
+    vertices: template.vertices,
+    edges: template.edges,
+    color: palette[index % palette.length],
+    tx,
+    ty,
+    tz,
+    rx: 0,
+    ry: 0,
+    rz: 0,
+    sx: 1,
+    sy: 1,
+    sz: 1,
     initial: {
-      x: offsetX,
-      y: offsetY,
-      rotation: 0,
-      scaleX: 1,
-      scaleY: 1,
-      pivotMode: "center",
-      pivot: { x: 0, y: 0 }
+      tx,
+      ty,
+      tz,
+      rx: 0,
+      ry: 0,
+      rz: 0,
+      sx: 1,
+      sy: 1,
+      sz: 1
     }
   };
 }
 
-function getSelectedShape() {
-  return state.shapes.find((shape) => shape.id === state.selectedId) || null;
+function getSelectedObject() {
+  return state.objects.find((object3d) => object3d.id === state.selectedId) || null;
 }
 
-function refreshShapeList() {
-  ui.shapeList.innerHTML = "";
+function refreshObjectList() {
+  ui.objectList.innerHTML = "";
 
-  for (const shape of state.shapes) {
+  for (const object3d of state.objects) {
     const option = document.createElement("option");
-    option.value = String(shape.id);
-    option.textContent = shape.name;
-    if (shape.id === state.selectedId) {
+    option.value = String(object3d.id);
+    option.textContent = object3d.name;
+    if (object3d.id === state.selectedId) {
       option.selected = true;
     }
-    ui.shapeList.appendChild(option);
+    ui.objectList.appendChild(option);
   }
 }
 
@@ -196,134 +228,117 @@ function setPairValues(rangeElement, inputElement, value) {
   inputElement.value = String(value);
 }
 
-function syncControlsFromShape(shape) {
-  if (!shape) {
+function syncControlsFromObject(object3d) {
+  if (!object3d) {
     return;
   }
 
-  setPairValues(ui.txRange, ui.txInput, Math.round(shape.x));
-  setPairValues(ui.tyRange, ui.tyInput, Math.round(shape.y));
-  setPairValues(ui.rotRange, ui.rotInput, Math.round(shape.rotation));
-  setPairValues(ui.sxRange, ui.sxInput, Number(shape.scaleX.toFixed(2)));
-  setPairValues(ui.syRange, ui.syInput, Number(shape.scaleY.toFixed(2)));
+  setPairValues(ui.txRange, ui.txInput, Math.round(object3d.tx));
+  setPairValues(ui.tyRange, ui.tyInput, Math.round(object3d.ty));
+  setPairValues(ui.tzRange, ui.tzInput, Math.round(object3d.tz));
 
-  ui.pivotMode.value = shape.pivotMode;
-  ui.pivotX.value = String(Math.round(shape.pivot.x));
-  ui.pivotY.value = String(Math.round(shape.pivot.y));
+  setPairValues(ui.rxRange, ui.rxInput, Math.round(object3d.rx));
+  setPairValues(ui.ryRange, ui.ryInput, Math.round(object3d.ry));
+  setPairValues(ui.rzRange, ui.rzInput, Math.round(object3d.rz));
 
-  ui.animationMode.value = shape.animation.mode;
-  setPairValues(
-    ui.animSpeedRange,
-    ui.animSpeedInput,
-    Number(shape.animation.speed.toFixed(1))
-  );
+  setPairValues(ui.sxRange, ui.sxInput, Number(object3d.sx.toFixed(2)));
+  setPairValues(ui.syRange, ui.syInput, Number(object3d.sy.toFixed(2)));
+  setPairValues(ui.szRange, ui.szInput, Number(object3d.sz.toFixed(2)));
 
-  updatePivotInputsState();
-  updateAnimationButtonLabel();
+  setPairValues(ui.cameraRange, ui.cameraInput, Math.round(state.cameraDistance));
+  ui.showAxes.checked = state.showAxes;
 }
 
-function updateSelectedShapeLabel() {
-  const shape = getSelectedShape();
+function updateSelectedObjectLabel() {
+  const object3d = getSelectedObject();
 
-  if (!shape) {
-    ui.selectedShapeLabel.textContent = "No shape selected.";
+  if (!object3d) {
+    ui.selectedObjectLabel.textContent = "No object selected.";
     return;
   }
 
-  ui.selectedShapeLabel.textContent = `Selected: ${shape.name}`;
+  ui.selectedObjectLabel.textContent = `Selected: ${object3d.name}`;
 }
 
-function selectShapeById(id) {
+function selectObjectById(id) {
   state.selectedId = id;
-  refreshShapeList();
-  const shape = getSelectedShape();
-  syncControlsFromShape(shape);
-  updateSelectedShapeLabel();
+  refreshObjectList();
+  const object3d = getSelectedObject();
+  syncControlsFromObject(object3d);
+  updateSelectedObjectLabel();
   updateMatrixDisplay();
+  renderScene();
 }
 
-function addShape(type) {
-  const newShape = createShape(type);
-  state.shapes.push(newShape);
-  selectShapeById(newShape.id);
+function addObject(type) {
+  const object3d = createObject(type);
+  state.objects.push(object3d);
+  selectObjectById(object3d.id);
 }
 
-function deleteSelectedShape() {
-  const selected = getSelectedShape();
+function resetObject(object3d) {
+  object3d.tx = object3d.initial.tx;
+  object3d.ty = object3d.initial.ty;
+  object3d.tz = object3d.initial.tz;
+  object3d.rx = object3d.initial.rx;
+  object3d.ry = object3d.initial.ry;
+  object3d.rz = object3d.initial.rz;
+  object3d.sx = object3d.initial.sx;
+  object3d.sy = object3d.initial.sy;
+  object3d.sz = object3d.initial.sz;
+}
+
+function deleteSelectedObject() {
+  const selected = getSelectedObject();
 
   if (!selected) {
     return;
   }
 
-  if (state.shapes.length === 1) {
-    resetShape(selected);
+  if (state.objects.length === 1) {
+    resetObject(selected);
+    syncControlsFromObject(selected);
+    updateMatrixDisplay();
+    renderScene();
     return;
   }
 
-  state.shapes = state.shapes.filter((shape) => shape.id !== selected.id);
+  state.objects = state.objects.filter((object3d) => object3d.id !== selected.id);
 
-  if (state.shapes.length > 0) {
-    state.selectedId = state.shapes[state.shapes.length - 1].id;
-  } else {
-    state.selectedId = null;
-  }
-
-  refreshShapeList();
-  updateSelectedShapeLabel();
-  syncControlsFromShape(getSelectedShape());
-  updateMatrixDisplay();
-}
-
-function resetShape(shape) {
-  shape.x = shape.initial.x;
-  shape.y = shape.initial.y;
-  shape.rotation = shape.initial.rotation;
-  shape.scaleX = shape.initial.scaleX;
-  shape.scaleY = shape.initial.scaleY;
-  shape.pivotMode = shape.initial.pivotMode;
-  shape.pivot = {
-    x: shape.initial.pivot.x,
-    y: shape.initial.pivot.y
-  };
-  shape.animation.active = false;
-  shape.animation.mode = "none";
-  shape.animation.speed = 1;
-  shape.animation.phase = 0;
-  shape.animation.baseScaleX = shape.scaleX;
-  shape.animation.baseScaleY = shape.scaleY;
-}
-
-function resetAllShapes() {
-  for (const shape of state.shapes) {
-    resetShape(shape);
-  }
-  syncControlsFromShape(getSelectedShape());
-  updateMatrixDisplay();
-}
-
-function updatePivotInputsState() {
-  const useCustomPivot = ui.pivotMode.value === "custom";
-  ui.pivotX.disabled = !useCustomPivot;
-  ui.pivotY.disabled = !useCustomPivot;
-}
-
-function updateAnimationButtonLabel() {
-  const shape = getSelectedShape();
-  if (!shape) {
-    ui.toggleAnimationBtn.textContent = "Start Animation";
+  if (state.objects.length > 0) {
+    selectObjectById(state.objects[state.objects.length - 1].id);
     return;
   }
 
-  ui.toggleAnimationBtn.textContent = shape.animation.active
-    ? "Pause Animation"
-    : "Start Animation";
+  state.selectedId = null;
+  refreshObjectList();
+  updateSelectedObjectLabel();
+  updateMatrixDisplay();
+  renderScene();
+}
+
+function resetAllObjects() {
+  for (const object3d of state.objects) {
+    resetObject(object3d);
+  }
+
+  syncControlsFromObject(getSelectedObject());
+  updateMatrixDisplay();
+  renderScene();
 }
 
 function bindRangeInput(rangeElement, numberElement, onChange) {
-  const applyChange = (value) => {
-    const parsed = Number(value);
+  const applyChange = (rawValue) => {
+    let parsed = Number(rawValue);
     if (Number.isNaN(parsed)) {
       return;
+    }
+
+    const min = Number(rangeElement.min);
+    const max = Number(rangeElement.max);
+
+    if (Number.isFinite(min) && Number.isFinite(max)) {
+      parsed = clamp(parsed, min, max);
     }
 
     rangeElement.value = String(parsed);
@@ -336,169 +351,142 @@ function bindRangeInput(rangeElement, numberElement, onChange) {
 }
 
 function setupControlHandlers() {
-  ui.addShapeBtn.addEventListener("click", () => {
-    addShape(ui.shapeTemplate.value);
+  ui.addObjectBtn.addEventListener("click", () => {
+    addObject(ui.objectTemplate.value);
   });
 
-  ui.deleteShapeBtn.addEventListener("click", () => {
-    deleteSelectedShape();
+  ui.deleteObjectBtn.addEventListener("click", () => {
+    deleteSelectedObject();
   });
 
-  ui.shapeList.addEventListener("change", () => {
-    selectShapeById(Number(ui.shapeList.value));
+  ui.objectList.addEventListener("change", () => {
+    selectObjectById(Number(ui.objectList.value));
   });
 
   bindRangeInput(ui.txRange, ui.txInput, (value) => {
-    const shape = getSelectedShape();
-    if (!shape) {
+    const object3d = getSelectedObject();
+    if (!object3d) {
       return;
     }
-    shape.x = value;
+
+    object3d.tx = value;
     updateMatrixDisplay();
+    renderScene();
   });
 
   bindRangeInput(ui.tyRange, ui.tyInput, (value) => {
-    const shape = getSelectedShape();
-    if (!shape) {
+    const object3d = getSelectedObject();
+    if (!object3d) {
       return;
     }
-    shape.y = value;
+
+    object3d.ty = value;
     updateMatrixDisplay();
+    renderScene();
   });
 
-  bindRangeInput(ui.rotRange, ui.rotInput, (value) => {
-    const shape = getSelectedShape();
-    if (!shape) {
+  bindRangeInput(ui.tzRange, ui.tzInput, (value) => {
+    const object3d = getSelectedObject();
+    if (!object3d) {
       return;
     }
-    shape.rotation = normalizeAngle(value);
+
+    object3d.tz = value;
     updateMatrixDisplay();
+    renderScene();
+  });
+
+  bindRangeInput(ui.rxRange, ui.rxInput, (value) => {
+    const object3d = getSelectedObject();
+    if (!object3d) {
+      return;
+    }
+
+    object3d.rx = normalizeAngle(value);
+    updateMatrixDisplay();
+    renderScene();
+  });
+
+  bindRangeInput(ui.ryRange, ui.ryInput, (value) => {
+    const object3d = getSelectedObject();
+    if (!object3d) {
+      return;
+    }
+
+    object3d.ry = normalizeAngle(value);
+    updateMatrixDisplay();
+    renderScene();
+  });
+
+  bindRangeInput(ui.rzRange, ui.rzInput, (value) => {
+    const object3d = getSelectedObject();
+    if (!object3d) {
+      return;
+    }
+
+    object3d.rz = normalizeAngle(value);
+    updateMatrixDisplay();
+    renderScene();
   });
 
   bindRangeInput(ui.sxRange, ui.sxInput, (value) => {
-    const shape = getSelectedShape();
-    if (!shape) {
+    const object3d = getSelectedObject();
+    if (!object3d) {
       return;
     }
-    shape.scaleX = clamp(value, 0.2, 3);
-    shape.animation.baseScaleX = shape.scaleX;
+
+    object3d.sx = clamp(value, 0.2, 3);
     updateMatrixDisplay();
+    renderScene();
   });
 
   bindRangeInput(ui.syRange, ui.syInput, (value) => {
-    const shape = getSelectedShape();
-    if (!shape) {
+    const object3d = getSelectedObject();
+    if (!object3d) {
       return;
     }
-    shape.scaleY = clamp(value, 0.2, 3);
-    shape.animation.baseScaleY = shape.scaleY;
+
+    object3d.sy = clamp(value, 0.2, 3);
     updateMatrixDisplay();
+    renderScene();
   });
 
-  ui.pivotMode.addEventListener("change", () => {
-    const shape = getSelectedShape();
-    if (!shape) {
+  bindRangeInput(ui.szRange, ui.szInput, (value) => {
+    const object3d = getSelectedObject();
+    if (!object3d) {
       return;
     }
 
-    shape.pivotMode = ui.pivotMode.value;
-    updatePivotInputsState();
+    object3d.sz = clamp(value, 0.2, 3);
     updateMatrixDisplay();
+    renderScene();
   });
 
-  const updatePivotInputs = () => {
-    const shape = getSelectedShape();
-    if (!shape) {
-      return;
-    }
-
-    shape.pivot.x = Number(ui.pivotX.value);
-    shape.pivot.y = Number(ui.pivotY.value);
+  bindRangeInput(ui.cameraRange, ui.cameraInput, (value) => {
+    state.cameraDistance = clamp(value, 280, 1200);
     updateMatrixDisplay();
-  };
-
-  ui.pivotX.addEventListener("input", updatePivotInputs);
-  ui.pivotY.addEventListener("input", updatePivotInputs);
-
-  ui.pickPivotBtn.addEventListener("click", () => {
-    state.pickingPivot = !state.pickingPivot;
-    ui.pickPivotBtn.textContent = state.pickingPivot
-      ? "Click Canvas To Set Pivot"
-      : "Pick Pivot On Canvas";
-    ui.pickPivotBtn.classList.toggle("secondary", !state.pickingPivot);
+    renderScene();
   });
 
-  ui.animationMode.addEventListener("change", () => {
-    const shape = getSelectedShape();
-    if (!shape) {
-      return;
-    }
-
-    shape.animation.mode = ui.animationMode.value;
-    if (shape.animation.mode === "none") {
-      shape.animation.active = false;
-    }
-    updateAnimationButtonLabel();
-  });
-
-  bindRangeInput(ui.animSpeedRange, ui.animSpeedInput, (value) => {
-    const shape = getSelectedShape();
-    if (!shape) {
-      return;
-    }
-    shape.animation.speed = clamp(value, 0.2, 5);
-  });
-
-  ui.toggleAnimationBtn.addEventListener("click", () => {
-    const shape = getSelectedShape();
-    if (!shape) {
-      return;
-    }
-
-    if (!shape.animation.active) {
-      if (shape.animation.mode === "none") {
-        shape.animation.mode = "rotate";
-        ui.animationMode.value = "rotate";
-      }
-      shape.animation.baseScaleX = shape.scaleX;
-      shape.animation.baseScaleY = shape.scaleY;
-      shape.animation.active = true;
-    } else {
-      shape.animation.active = false;
-    }
-
-    updateAnimationButtonLabel();
-  });
-
-  ui.stopAnimationBtn.addEventListener("click", () => {
-    const shape = getSelectedShape();
-    if (!shape) {
-      return;
-    }
-    shape.animation.active = false;
-    updateAnimationButtonLabel();
-  });
-
-  ui.showOriginal.addEventListener("change", () => {
-    state.showOriginal = ui.showOriginal.checked;
-  });
-
-  ui.showPseudo3D.addEventListener("change", () => {
-    state.showPseudo3D = ui.showPseudo3D.checked;
+  ui.showAxes.addEventListener("change", () => {
+    state.showAxes = ui.showAxes.checked;
+    renderScene();
   });
 
   ui.resetSelectedBtn.addEventListener("click", () => {
-    const shape = getSelectedShape();
-    if (!shape) {
+    const object3d = getSelectedObject();
+    if (!object3d) {
       return;
     }
-    resetShape(shape);
-    syncControlsFromShape(shape);
+
+    resetObject(object3d);
+    syncControlsFromObject(object3d);
     updateMatrixDisplay();
+    renderScene();
   });
 
   ui.resetAllBtn.addEventListener("click", () => {
-    resetAllShapes();
+    resetAllObjects();
   });
 
   for (const button of testButtons) {
@@ -509,569 +497,318 @@ function setupControlHandlers() {
 }
 
 function applySampleTest(testId) {
-  const shape = getSelectedShape();
-  if (!shape) {
+  const object3d = getSelectedObject();
+  if (!object3d) {
     return;
   }
 
   if (testId === 1) {
-    shape.x = 180;
-    shape.y = -60;
-    shape.rotation = 42;
-    shape.scaleX = 1.2;
-    shape.scaleY = 0.85;
-    shape.pivotMode = "center";
-    shape.animation.active = false;
+    object3d.tx = 130;
+    object3d.ty = 20;
+    object3d.tz = 120;
+    object3d.rx = 22;
+    object3d.ry = 38;
+    object3d.rz = 0;
+    object3d.sx = 1;
+    object3d.sy = 1;
+    object3d.sz = 1;
   } else if (testId === 2) {
-    shape.x = -165;
-    shape.y = 95;
-    shape.rotation = -27;
-    shape.scaleX = 1.65;
-    shape.scaleY = 1.18;
-    shape.pivotMode = "center";
-    shape.animation.active = false;
+    object3d.tx = -140;
+    object3d.ty = 40;
+    object3d.tz = 60;
+    object3d.rx = -28;
+    object3d.ry = 12;
+    object3d.rz = 34;
+    object3d.sx = 1.65;
+    object3d.sy = 0.78;
+    object3d.sz = 1.24;
   } else {
-    shape.x = 60;
-    shape.y = 45;
-    shape.rotation = 15;
-    shape.scaleX = 1;
-    shape.scaleY = 1;
-    shape.pivotMode = "custom";
-    shape.pivot = { x: -80, y: -70 };
-    shape.animation.mode = "rotate";
-    shape.animation.speed = 1.6;
-    shape.animation.active = true;
+    object3d.tx = 20;
+    object3d.ty = -35;
+    object3d.tz = 220;
+    object3d.rx = 44;
+    object3d.ry = -30;
+    object3d.rz = 15;
+    object3d.sx = 0.92;
+    object3d.sy = 1.32;
+    object3d.sz = 0.92;
   }
 
-  shape.animation.baseScaleX = shape.scaleX;
-  shape.animation.baseScaleY = shape.scaleY;
-  syncControlsFromShape(shape);
+  syncControlsFromObject(object3d);
   updateMatrixDisplay();
+  renderScene();
 }
 
-function identityMatrix() {
+function identity4() {
   return [
-    [1, 0, 0],
-    [0, 1, 0],
-    [0, 0, 1]
+    [1, 0, 0, 0],
+    [0, 1, 0, 0],
+    [0, 0, 1, 0],
+    [0, 0, 0, 1]
   ];
 }
 
-function multiplyMatrices(a, b) {
-  const result = identityMatrix();
+function multiply4(a, b) {
+  const result = identity4();
 
-  for (let row = 0; row < 3; row += 1) {
-    for (let col = 0; col < 3; col += 1) {
+  for (let row = 0; row < 4; row += 1) {
+    for (let col = 0; col < 4; col += 1) {
       result[row][col] =
         a[row][0] * b[0][col] +
         a[row][1] * b[1][col] +
-        a[row][2] * b[2][col];
+        a[row][2] * b[2][col] +
+        a[row][3] * b[3][col];
     }
   }
 
   return result;
 }
 
-function translationMatrix(tx, ty) {
+function translationMatrix4(tx, ty, tz) {
   return [
-    [1, 0, tx],
-    [0, 1, ty],
-    [0, 0, 1]
+    [1, 0, 0, tx],
+    [0, 1, 0, ty],
+    [0, 0, 1, tz],
+    [0, 0, 0, 1]
   ];
 }
 
-function rotationMatrix(angleRadians) {
-  const cos = Math.cos(angleRadians);
-  const sin = Math.sin(angleRadians);
+function scaleMatrix4(sx, sy, sz) {
   return [
-    [cos, -sin, 0],
-    [sin, cos, 0],
-    [0, 0, 1]
+    [sx, 0, 0, 0],
+    [0, sy, 0, 0],
+    [0, 0, sz, 0],
+    [0, 0, 0, 1]
   ];
 }
 
-function scaleMatrix(sx, sy) {
+function rotationMatrixX(angleRad) {
+  const c = Math.cos(angleRad);
+  const s = Math.sin(angleRad);
+
   return [
-    [sx, 0, 0],
-    [0, sy, 0],
-    [0, 0, 1]
+    [1, 0, 0, 0],
+    [0, c, -s, 0],
+    [0, s, c, 0],
+    [0, 0, 0, 1]
   ];
 }
 
-function applyMatrix(matrix, point) {
-  return {
-    x: matrix[0][0] * point.x + matrix[0][1] * point.y + matrix[0][2],
-    y: matrix[1][0] * point.x + matrix[1][1] * point.y + matrix[1][2]
-  };
-}
+function rotationMatrixY(angleRad) {
+  const c = Math.cos(angleRad);
+  const s = Math.sin(angleRad);
 
-function invertAffineMatrix(matrix) {
-  const a = matrix[0][0];
-  const c = matrix[0][1];
-  const e = matrix[0][2];
-  const b = matrix[1][0];
-  const d = matrix[1][1];
-  const f = matrix[1][2];
-
-  const determinant = a * d - b * c;
-  if (Math.abs(determinant) < 1e-9) {
-    return null;
-  }
-
-  const inverseDet = 1 / determinant;
   return [
-    [d * inverseDet, -c * inverseDet, (c * f - d * e) * inverseDet],
-    [-b * inverseDet, a * inverseDet, (b * e - a * f) * inverseDet],
-    [0, 0, 1]
+    [c, 0, s, 0],
+    [0, 1, 0, 0],
+    [-s, 0, c, 0],
+    [0, 0, 0, 1]
   ];
 }
 
-function getLocalPivot(shape) {
-  if (shape.pivotMode === "custom") {
-    return {
-      x: shape.pivot.x - shape.x,
-      y: shape.pivot.y - shape.y
-    };
-  }
+function rotationMatrixZ(angleRad) {
+  const c = Math.cos(angleRad);
+  const s = Math.sin(angleRad);
 
-  return { x: 0, y: 0 };
+  return [
+    [c, -s, 0, 0],
+    [s, c, 0, 0],
+    [0, 0, 1, 0],
+    [0, 0, 0, 1]
+  ];
 }
 
-function getShapeTransformMatrix(shape) {
-  const pivot = getLocalPivot(shape);
-  const angle = toRadians(shape.rotation);
+function buildTransformMatrix(object3d) {
+  let matrix = identity4();
 
-  let matrix = identityMatrix();
-  matrix = multiplyMatrices(matrix, translationMatrix(shape.x, shape.y));
-  matrix = multiplyMatrices(matrix, translationMatrix(pivot.x, pivot.y));
-  matrix = multiplyMatrices(matrix, rotationMatrix(angle));
-  matrix = multiplyMatrices(matrix, scaleMatrix(shape.scaleX, shape.scaleY));
-  matrix = multiplyMatrices(matrix, translationMatrix(-pivot.x, -pivot.y));
+  matrix = multiply4(matrix, translationMatrix4(object3d.tx, object3d.ty, object3d.tz));
+  matrix = multiply4(matrix, rotationMatrixZ(toRadians(object3d.rz)));
+  matrix = multiply4(matrix, rotationMatrixY(toRadians(object3d.ry)));
+  matrix = multiply4(matrix, rotationMatrixX(toRadians(object3d.rx)));
+  matrix = multiply4(matrix, scaleMatrix4(object3d.sx, object3d.sy, object3d.sz));
 
   return matrix;
 }
 
+function applyMatrix4(matrix, point) {
+  return {
+    x: matrix[0][0] * point.x + matrix[0][1] * point.y + matrix[0][2] * point.z + matrix[0][3],
+    y: matrix[1][0] * point.x + matrix[1][1] * point.y + matrix[1][2] * point.z + matrix[1][3],
+    z: matrix[2][0] * point.x + matrix[2][1] * point.y + matrix[2][2] * point.z + matrix[2][3]
+  };
+}
+
+function transformVertices(object3d) {
+  const matrix = buildTransformMatrix(object3d);
+  return object3d.vertices.map((vertex) => applyMatrix4(matrix, vertex));
+}
+
 function updateMatrixDisplay() {
-  const shape = getSelectedShape();
-  if (!shape) {
-    ui.matrixOutput.textContent = "Select a shape to view matrix values.";
+  const object3d = getSelectedObject();
+  if (!object3d) {
+    ui.matrixOutput.textContent = "Select an object to view matrix values.";
     return;
   }
 
-  const matrix = getShapeTransformMatrix(shape);
-  const rows = matrix.map(
-    (row) =>
-      row
-        .map((value) => value.toFixed(3).padStart(9, " "))
-        .join(" ")
-  );
+  const matrix = buildTransformMatrix(object3d);
+  const rows = matrix.map((row) => row.map((value) => value.toFixed(3).padStart(10, " ")).join(" "));
 
-  const pivotText =
-    shape.pivotMode === "custom"
-      ? `Custom Pivot: (${shape.pivot.x.toFixed(1)}, ${shape.pivot.y.toFixed(1)})`
-      : "Pivot: Shape center";
-
-  ui.matrixOutput.textContent = `${rows.join("\n")}\n\n${pivotText}`;
+  ui.matrixOutput.textContent = `${rows.join("\n")}\n\nCamera Distance: ${state.cameraDistance.toFixed(1)}`;
 }
 
-function tracePolygonPath(points) {
-  if (points.length === 0) {
-    return;
+function projectPoint(point) {
+  const depth = state.cameraDistance + point.z;
+  if (depth < 45) {
+    return null;
   }
 
-  ctx.beginPath();
-  ctx.moveTo(points[0].x, points[0].y);
-
-  for (let i = 1; i < points.length; i += 1) {
-    ctx.lineTo(points[i].x, points[i].y);
-  }
-
-  ctx.closePath();
-}
-
-function drawGridAndAxes() {
   const center = getCanvasCenter();
-  const step = 25;
-  const majorStep = 100;
+  const scale = state.cameraDistance / depth;
 
-  const minX = -center.x;
-  const maxX = canvas.width - center.x;
-  const minY = -center.y;
-  const maxY = canvas.height - center.y;
+  return {
+    x: center.x + point.x * scale,
+    y: center.y - point.y * scale,
+    depth
+  };
+}
 
-  ctx.setTransform(1, 0, 0, 1, center.x, center.y);
-  ctx.lineWidth = 1;
+function drawProjectedLine(pointA, pointB, color, width = 1.8) {
+  const start = projectPoint(pointA);
+  const end = projectPoint(pointB);
 
-  for (let x = Math.floor(minX / step) * step; x <= maxX; x += step) {
-    const isMajor = Math.abs(x % majorStep) < 0.1;
-    ctx.strokeStyle = isMajor ? "rgba(61, 93, 115, 0.24)" : "rgba(61, 93, 115, 0.12)";
-    ctx.beginPath();
-    ctx.moveTo(x, minY);
-    ctx.lineTo(x, maxY);
-    ctx.stroke();
+  if (!start || !end) {
+    return;
   }
 
-  for (let y = Math.floor(minY / step) * step; y <= maxY; y += step) {
-    const isMajor = Math.abs(y % majorStep) < 0.1;
-    ctx.strokeStyle = isMajor ? "rgba(61, 93, 115, 0.24)" : "rgba(61, 93, 115, 0.12)";
-    ctx.beginPath();
-    ctx.moveTo(minX, y);
-    ctx.lineTo(maxX, y);
-    ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(start.x, start.y);
+  ctx.lineTo(end.x, end.y);
+  ctx.lineWidth = width;
+  ctx.strokeStyle = color;
+  ctx.stroke();
+}
+
+function drawAxes() {
+  if (!state.showAxes) {
+    return;
   }
 
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = "rgba(9, 39, 58, 0.66)";
+  const axisLength = 220;
+  const origin = { x: 0, y: 0, z: 0 };
 
-  ctx.beginPath();
-  ctx.moveTo(minX, 0);
-  ctx.lineTo(maxX, 0);
-  ctx.stroke();
+  drawProjectedLine(origin, { x: axisLength, y: 0, z: 0 }, "rgba(239, 108, 47, 0.9)", 2.3);
+  drawProjectedLine(origin, { x: 0, y: axisLength, z: 0 }, "rgba(24, 143, 134, 0.9)", 2.3);
+  drawProjectedLine(origin, { x: 0, y: 0, z: axisLength }, "rgba(59, 110, 168, 0.9)", 2.3);
 
-  ctx.beginPath();
-  ctx.moveTo(0, minY);
-  ctx.lineTo(0, maxY);
-  ctx.stroke();
+  const xTip = projectPoint({ x: axisLength, y: 0, z: 0 });
+  const yTip = projectPoint({ x: 0, y: axisLength, z: 0 });
+  const zTip = projectPoint({ x: 0, y: 0, z: axisLength });
 
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.fillStyle = "rgba(23, 51, 69, 0.78)";
+  ctx.fillStyle = "rgba(20, 33, 43, 0.85)";
   ctx.font = "12px 'IBM Plex Mono', monospace";
-  ctx.fillText("+X", canvas.width - 32, center.y - 8);
-  ctx.fillText("+Y", center.x + 8, 16);
-}
 
-function drawOriginalShape(shape) {
-  const center = getCanvasCenter();
+  if (xTip) {
+    ctx.fillText("X", xTip.x + 6, xTip.y - 6);
+  }
 
-  ctx.setTransform(1, 0, 0, 1, center.x, center.y);
-  ctx.translate(shape.initial.x, shape.initial.y);
+  if (yTip) {
+    ctx.fillText("Y", yTip.x + 6, yTip.y - 6);
+  }
 
-  tracePolygonPath(shape.points);
-  ctx.fillStyle = "rgba(45, 70, 88, 0.1)";
-  ctx.fill();
-
-  ctx.lineWidth = 1.6;
-  ctx.setLineDash([7, 6]);
-  ctx.strokeStyle = "rgba(45, 70, 88, 0.75)";
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-}
-
-function drawPseudo3DFaces(points) {
-  const depthX = 16;
-  const depthY = -12;
-
-  const offsetPoints = points.map((point) => ({
-    x: point.x + depthX,
-    y: point.y + depthY
-  }));
-
-  tracePolygonPath(offsetPoints);
-  ctx.fillStyle = "rgba(15, 35, 51, 0.22)";
-  ctx.fill();
-
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = "rgba(15, 35, 51, 0.22)";
-
-  for (let i = 0; i < points.length; i += 1) {
-    const point = points[i];
-    const offsetPoint = offsetPoints[i];
-
-    ctx.beginPath();
-    ctx.moveTo(point.x, point.y);
-    ctx.lineTo(offsetPoint.x, offsetPoint.y);
-    ctx.stroke();
+  if (zTip) {
+    ctx.fillText("Z", zTip.x + 6, zTip.y - 6);
   }
 }
 
-function drawTransformedShape(shape, selected) {
-  const center = getCanvasCenter();
-  const pivot = getLocalPivot(shape);
+function drawObjectWireframe(entry, selected) {
+  const projected = entry.transformed.map((vertex) => projectPoint(vertex));
 
-  ctx.setTransform(1, 0, 0, 1, center.x, center.y);
+  ctx.strokeStyle = selected ? "rgba(11, 47, 69, 0.95)" : entry.object3d.color;
+  ctx.lineWidth = selected ? 2.8 : 1.8;
 
-  // 1) Translation moves the shape in world space.
-  ctx.translate(shape.x, shape.y);
-  // 2) Move the origin to the chosen pivot, so rotation/scaling happen around it.
-  ctx.translate(pivot.x, pivot.y);
-  // 3) Rotate around the pivot.
-  ctx.rotate(toRadians(shape.rotation));
-  // 4) Scale around the pivot.
-  ctx.scale(shape.scaleX, shape.scaleY);
-  // 5) Move origin back after pivot-centered transforms.
-  ctx.translate(-pivot.x, -pivot.y);
+  for (const edge of entry.object3d.edges) {
+    const start = projected[edge[0]];
+    const end = projected[edge[1]];
 
-  if (state.showPseudo3D) {
-    drawPseudo3DFaces(shape.points);
-  }
-
-  tracePolygonPath(shape.points);
-  ctx.fillStyle = shape.fill;
-  ctx.globalAlpha = 0.9;
-  ctx.fill();
-  ctx.globalAlpha = 1;
-
-  ctx.lineWidth = selected ? 3 : 2;
-  ctx.strokeStyle = selected ? "rgba(9, 39, 58, 0.95)" : "rgba(15, 44, 63, 0.75)";
-  ctx.stroke();
-
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-}
-
-function drawCustomPivotMarker(shape) {
-  if (shape.pivotMode !== "custom") {
-    return;
-  }
-
-  const pivotScreen = worldToScreen(shape.pivot);
-
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.strokeStyle = "#0d8a85";
-  ctx.fillStyle = "rgba(13, 138, 133, 0.18)";
-  ctx.lineWidth = 2;
-
-  ctx.beginPath();
-  ctx.arc(pivotScreen.x, pivotScreen.y, 8, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(pivotScreen.x - 12, pivotScreen.y);
-  ctx.lineTo(pivotScreen.x + 12, pivotScreen.y);
-  ctx.moveTo(pivotScreen.x, pivotScreen.y - 12);
-  ctx.lineTo(pivotScreen.x, pivotScreen.y + 12);
-  ctx.stroke();
-}
-
-function drawScene() {
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  drawGridAndAxes();
-
-  if (state.showOriginal) {
-    for (const shape of state.shapes) {
-      drawOriginalShape(shape);
-    }
-  }
-
-  for (const shape of state.shapes) {
-    drawTransformedShape(shape, shape.id === state.selectedId);
-  }
-
-  const selected = getSelectedShape();
-  if (selected) {
-    drawCustomPivotMarker(selected);
-  }
-
-  if (state.pickingPivot) {
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = "rgba(9, 39, 58, 0.86)";
-    ctx.font = "13px 'IBM Plex Mono', monospace";
-    ctx.fillText("Click canvas to set pivot", 12, 22);
-  }
-}
-
-function pointInPolygon(point, polygon) {
-  let inside = false;
-
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i].x;
-    const yi = polygon[i].y;
-    const xj = polygon[j].x;
-    const yj = polygon[j].y;
-
-    const intersects =
-      yi > point.y !== yj > point.y &&
-      point.x < ((xj - xi) * (point.y - yi)) / (yj - yi) + xi;
-
-    if (intersects) {
-      inside = !inside;
-    }
-  }
-
-  return inside;
-}
-
-function isPointInsideShape(worldPoint, shape) {
-  const matrix = getShapeTransformMatrix(shape);
-  const inverse = invertAffineMatrix(matrix);
-
-  if (!inverse) {
-    return false;
-  }
-
-  const localPoint = applyMatrix(inverse, worldPoint);
-  return pointInPolygon(localPoint, shape.points);
-}
-
-function pickTopmostShape(worldPoint) {
-  for (let i = state.shapes.length - 1; i >= 0; i -= 1) {
-    const shape = state.shapes[i];
-    if (isPointInsideShape(worldPoint, shape)) {
-      return shape;
-    }
-  }
-
-  return null;
-}
-
-function eventToWorld(event) {
-  const rect = canvas.getBoundingClientRect();
-  const screenPoint = {
-    x: event.clientX - rect.left,
-    y: event.clientY - rect.top
-  };
-  return screenToWorld(screenPoint);
-}
-
-function setupCanvasInteraction() {
-  canvas.addEventListener("pointerdown", (event) => {
-    const selected = getSelectedShape();
-    const worldPoint = eventToWorld(event);
-
-    if (state.pickingPivot && selected) {
-      selected.pivotMode = "custom";
-      selected.pivot = {
-        x: Math.round(worldPoint.x),
-        y: Math.round(worldPoint.y)
-      };
-
-      state.pickingPivot = false;
-      ui.pickPivotBtn.textContent = "Pick Pivot On Canvas";
-      ui.pickPivotBtn.classList.add("secondary");
-
-      syncControlsFromShape(selected);
-      updateMatrixDisplay();
-      return;
-    }
-
-    const hitShape = pickTopmostShape(worldPoint);
-
-    if (!hitShape) {
-      state.dragging.active = false;
-      return;
-    }
-
-    selectShapeById(hitShape.id);
-
-    state.dragging.active = true;
-    state.dragging.pointerId = event.pointerId;
-    state.dragging.offsetX = worldPoint.x - hitShape.x;
-    state.dragging.offsetY = worldPoint.y - hitShape.y;
-
-    canvas.setPointerCapture(event.pointerId);
-  });
-
-  canvas.addEventListener("pointermove", (event) => {
-    const worldPoint = eventToWorld(event);
-
-    if (state.dragging.active && event.pointerId === state.dragging.pointerId) {
-      const selected = getSelectedShape();
-      if (!selected) {
-        return;
-      }
-
-      selected.x = Math.round(worldPoint.x - state.dragging.offsetX);
-      selected.y = Math.round(worldPoint.y - state.dragging.offsetY);
-
-      syncControlsFromShape(selected);
-      updateMatrixDisplay();
-      canvas.style.cursor = "grabbing";
-      return;
-    }
-
-    if (state.pickingPivot) {
-      canvas.style.cursor = "crosshair";
-      return;
-    }
-
-    const hovered = pickTopmostShape(worldPoint);
-    canvas.style.cursor = hovered ? "grab" : "default";
-  });
-
-  const stopDragging = (event) => {
-    if (!state.dragging.active || event.pointerId !== state.dragging.pointerId) {
-      return;
-    }
-
-    state.dragging.active = false;
-    state.dragging.pointerId = null;
-    canvas.style.cursor = "default";
-
-    if (canvas.hasPointerCapture(event.pointerId)) {
-      canvas.releasePointerCapture(event.pointerId);
-    }
-  };
-
-  canvas.addEventListener("pointerup", stopDragging);
-  canvas.addEventListener("pointercancel", stopDragging);
-  canvas.addEventListener("pointerleave", (event) => {
-    if (!state.dragging.active) {
-      canvas.style.cursor = "default";
-      return;
-    }
-
-    stopDragging(event);
-  });
-}
-
-function updateAnimations(deltaSeconds) {
-  for (const shape of state.shapes) {
-    if (!shape.animation.active || shape.animation.mode === "none") {
+    if (!start || !end) {
       continue;
     }
 
-    if (shape.animation.mode === "rotate") {
-      shape.rotation = normalizeAngle(
-        shape.rotation + 70 * shape.animation.speed * deltaSeconds
-      );
-    }
+    ctx.beginPath();
+    ctx.moveTo(start.x, start.y);
+    ctx.lineTo(end.x, end.y);
+    ctx.stroke();
+  }
 
-    if (shape.animation.mode === "scale") {
-      shape.animation.phase += deltaSeconds * shape.animation.speed * 3;
-      const pulseX = 1 + 0.34 * Math.sin(shape.animation.phase);
-      const pulseY = 1 + 0.34 * Math.cos(shape.animation.phase);
-      shape.scaleX = clamp(shape.animation.baseScaleX * pulseX, 0.2, 3);
-      shape.scaleY = clamp(shape.animation.baseScaleY * pulseY, 0.2, 3);
+  if (selected) {
+    ctx.fillStyle = "rgba(13, 138, 133, 0.7)";
+
+    for (const point of projected) {
+      if (!point) {
+        continue;
+      }
+
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 2.6, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 
-  const selected = getSelectedShape();
-  if (selected && selected.animation.active) {
-    syncControlsFromShape(selected);
-    updateMatrixDisplay();
+  const visiblePoints = projected.filter(Boolean);
+  if (visiblePoints.length === 0) {
+    return;
   }
+
+  const labelX = visiblePoints.reduce((sum, point) => sum + point.x, 0) / visiblePoints.length;
+  const labelY = visiblePoints.reduce((sum, point) => sum + point.y, 0) / visiblePoints.length;
+
+  ctx.fillStyle = "rgba(20, 33, 43, 0.76)";
+  ctx.font = "11px 'IBM Plex Mono', monospace";
+  ctx.fillText(entry.object3d.name, labelX + 8, labelY - 8);
 }
 
-function frame(now) {
+function renderScene() {
   resizeCanvas();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  const deltaSeconds = Math.min((now - state.lastFrameTime) / 1000, 0.08);
-  state.lastFrameTime = now;
+  drawAxes();
 
-  updateAnimations(deltaSeconds);
-  drawScene();
+  const drawQueue = state.objects
+    .map((object3d) => {
+      const transformed = transformVertices(object3d);
+      const avgZ = transformed.reduce((sum, point) => sum + point.z, 0) / transformed.length;
 
-  requestAnimationFrame(frame);
+      return {
+        object3d,
+        transformed,
+        avgZ
+      };
+    })
+    .sort((a, b) => a.avgZ - b.avgZ);
+
+  for (const entry of drawQueue) {
+    drawObjectWireframe(entry, entry.object3d.id === state.selectedId);
+  }
+
+  if (drawQueue.length === 0) {
+    ctx.fillStyle = "rgba(20, 33, 43, 0.75)";
+    ctx.font = "14px 'IBM Plex Mono', monospace";
+    ctx.fillText("Add a 3D object to start", 16, 24);
+  }
 }
 
 function initialize() {
   setupControlHandlers();
-  setupCanvasInteraction();
 
-  addShape("rectangle");
-  addShape("triangle");
+  addObject("cube");
+  addObject("cuboid");
+  addObject("cone");
 
-  selectShapeById(state.shapes[0].id);
-  updatePivotInputsState();
-  updateMatrixDisplay();
+  selectObjectById(state.objects[0].id);
 
-  window.addEventListener("resize", resizeCanvas);
-  resizeCanvas();
-  requestAnimationFrame(frame);
+  window.addEventListener("resize", renderScene);
+  renderScene();
 }
 
 initialize();
