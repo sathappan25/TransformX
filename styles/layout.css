@@ -34,8 +34,8 @@
 }
 
 .panel {
-  background: linear-gradient(175deg, rgba(255, 255, 255, 0.9), rgba(247, 250, 252, 0.8));
-  border: 1px solid rgba(20, 33, 43, 0.1);
+  background: linear-gradient(175deg, rgba(255, 250, 252, 0.94), rgba(255, 236, 243, 0.84));
+  border: 1px solid rgba(120, 22, 52, 0.16);
   border-radius: 14px;
   padding: 0.8rem;
   margin-bottom: 0.75rem;
@@ -45,7 +45,7 @@
   border-radius: 20px;
   border: 1px solid var(--panel-border);
   box-shadow: var(--shadow);
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 248, 251, 0.88);
   backdrop-filter: blur(4px);
   padding: 0.9rem;
   display: grid;
@@ -59,7 +59,7 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
-  border-bottom: 1px dashed rgba(20, 33, 43, 0.16);
+  border-bottom: 1px dashed rgba(120, 22, 52, 0.24);
   padding-bottom: 0.6rem;
 }
 
@@ -78,10 +78,10 @@
   position: relative;
   border-radius: 16px;
   overflow: hidden;
-  border: 1px solid rgba(20, 33, 43, 0.12);
+  border: 1px solid rgba(120, 22, 52, 0.2);
   min-height: 420px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(240, 248, 250, 0.78));
+    linear-gradient(180deg, rgba(255, 250, 252, 0.95), rgba(255, 230, 239, 0.82));
 }
 
 #sceneCanvas {

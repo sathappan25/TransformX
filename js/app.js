@@ -32,7 +32,6 @@ const ui = {
   szRange: document.getElementById("szRange"),
   szInput: document.getElementById("szInput"),
 
-  showAxes: document.getElementById("showAxes"),
   cameraRange: document.getElementById("cameraRange"),
   cameraInput: document.getElementById("cameraInput"),
   resetSelectedBtn: document.getElementById("resetSelectedBtn"),
@@ -46,9 +45,15 @@ const state = {
   objects: [],
   nextId: 1,
   selectedId: null,
-  showAxes: true,
   cameraDistance: 620
 };
+
+const viewYaw = toRadians(-34);
+const viewPitch = toRadians(21);
+const cosYaw = Math.cos(viewYaw);
+const sinYaw = Math.sin(viewYaw);
+const cosPitch = Math.cos(viewPitch);
+const sinPitch = Math.sin(viewPitch);
 
 function getCanvasCenter() {
   return {
@@ -174,10 +179,11 @@ function createObject(type) {
   const tx = -190 + column * 190;
   const ty = 0;
   const tz = row * 120;
+  const objectNumber = state.nextId;
 
   return {
     id: state.nextId++,
-    name: `${template.label} ${index + 1}`,
+    name: `Object ${objectNumber}`,
     type,
     vertices: template.vertices,
     edges: template.edges,
@@ -246,7 +252,6 @@ function syncControlsFromObject(object3d) {
   setPairValues(ui.szRange, ui.szInput, Number(object3d.sz.toFixed(2)));
 
   setPairValues(ui.cameraRange, ui.cameraInput, Math.round(state.cameraDistance));
-  ui.showAxes.checked = state.showAxes;
 }
 
 function updateSelectedObjectLabel() {
@@ -468,11 +473,6 @@ function setupControlHandlers() {
     renderScene();
   });
 
-  ui.showAxes.addEventListener("change", () => {
-    state.showAxes = ui.showAxes.checked;
-    renderScene();
-  });
-
   ui.resetSelectedBtn.addEventListener("click", () => {
     const object3d = getSelectedObject();
     if (!object3d) {
@@ -656,8 +656,23 @@ function updateMatrixDisplay() {
   ui.matrixOutput.textContent = `${rows.join("\n")}\n\nCamera Distance: ${state.cameraDistance.toFixed(1)}`;
 }
 
+function applyViewRotation(point) {
+  const xYaw = point.x * cosYaw + point.z * sinYaw;
+  const zYaw = -point.x * sinYaw + point.z * cosYaw;
+
+  const yPitch = point.y * cosPitch - zYaw * sinPitch;
+  const zPitch = point.y * sinPitch + zYaw * cosPitch;
+
+  return {
+    x: xYaw,
+    y: yPitch,
+    z: zPitch
+  };
+}
+
 function projectPoint(point) {
-  const depth = state.cameraDistance + point.z;
+  const viewedPoint = applyViewRotation(point);
+  const depth = state.cameraDistance + viewedPoint.z;
   if (depth < 45) {
     return null;
   }
@@ -666,8 +681,8 @@ function projectPoint(point) {
   const scale = state.cameraDistance / depth;
 
   return {
-    x: center.x + point.x * scale,
-    y: center.y - point.y * scale,
+    x: center.x + viewedPoint.x * scale,
+    y: center.y - viewedPoint.y * scale,
     depth
   };
 }
@@ -689,16 +704,12 @@ function drawProjectedLine(pointA, pointB, color, width = 1.8) {
 }
 
 function drawAxes() {
-  if (!state.showAxes) {
-    return;
-  }
-
-  const axisLength = 220;
+  const axisLength = 250;
   const origin = { x: 0, y: 0, z: 0 };
 
-  drawProjectedLine(origin, { x: axisLength, y: 0, z: 0 }, "rgba(239, 108, 47, 0.9)", 2.3);
-  drawProjectedLine(origin, { x: 0, y: axisLength, z: 0 }, "rgba(24, 143, 134, 0.9)", 2.3);
-  drawProjectedLine(origin, { x: 0, y: 0, z: axisLength }, "rgba(59, 110, 168, 0.9)", 2.3);
+  drawProjectedLine(origin, { x: axisLength, y: 0, z: 0 }, "rgba(156, 16, 53, 0.88)", 2.3);
+  drawProjectedLine(origin, { x: 0, y: axisLength, z: 0 }, "rgba(122, 34, 62, 0.82)", 2.3);
+  drawProjectedLine(origin, { x: 0, y: 0, z: axisLength }, "rgba(198, 20, 68, 0.98)", 2.8);
 
   const xTip = projectPoint({ x: axisLength, y: 0, z: 0 });
   const yTip = projectPoint({ x: 0, y: axisLength, z: 0 });
@@ -723,7 +734,7 @@ function drawAxes() {
 function drawObjectWireframe(entry, selected) {
   const projected = entry.transformed.map((vertex) => projectPoint(vertex));
 
-  ctx.strokeStyle = selected ? "rgba(11, 47, 69, 0.95)" : entry.object3d.color;
+  ctx.strokeStyle = selected ? "rgba(82, 10, 35, 0.96)" : entry.object3d.color;
   ctx.lineWidth = selected ? 2.8 : 1.8;
 
   for (const edge of entry.object3d.edges) {
@@ -741,7 +752,7 @@ function drawObjectWireframe(entry, selected) {
   }
 
   if (selected) {
-    ctx.fillStyle = "rgba(13, 138, 133, 0.7)";
+    ctx.fillStyle = "rgba(198, 20, 68, 0.58)";
 
     for (const point of projected) {
       if (!point) {
@@ -753,18 +764,6 @@ function drawObjectWireframe(entry, selected) {
       ctx.fill();
     }
   }
-
-  const visiblePoints = projected.filter(Boolean);
-  if (visiblePoints.length === 0) {
-    return;
-  }
-
-  const labelX = visiblePoints.reduce((sum, point) => sum + point.x, 0) / visiblePoints.length;
-  const labelY = visiblePoints.reduce((sum, point) => sum + point.y, 0) / visiblePoints.length;
-
-  ctx.fillStyle = "rgba(20, 33, 43, 0.76)";
-  ctx.font = "11px 'IBM Plex Mono', monospace";
-  ctx.fillText(entry.object3d.name, labelX + 8, labelY - 8);
 }
 
 function renderScene() {

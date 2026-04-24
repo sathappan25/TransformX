@@ -92,9 +92,9 @@ select#objectList {
   margin: 0;
   padding: 0.6rem;
   border-radius: 10px;
-  border: 1px solid rgba(20, 33, 43, 0.12);
-  background: rgba(17, 34, 51, 0.94);
-  color: #e3edf3;
+  border: 1px solid rgba(177, 18, 61, 0.32);
+  background: rgba(55, 8, 23, 0.94);
+  color: #ffe5ed;
   font-family: "IBM Plex Mono", Consolas, monospace;
   font-size: 0.78rem;
   line-height: 1.35;
@@ -141,4 +141,8 @@ select#objectList {
 
 .swatch-transformed {
   background: var(--accent);
+}
+
+.swatch-z-axis {
+  background: #c61444;
 }
