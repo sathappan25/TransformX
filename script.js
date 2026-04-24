@@ -978,3 +978,61 @@ function setupCanvasInteraction() {
     state.dragging.active = true;
     state.dragging.pointerId = event.pointerId;
     state.dragging.offsetX = worldPoint.x - hitShape.x;
+    state.dragging.offsetY = worldPoint.y - hitShape.y;
+
+    canvas.setPointerCapture(event.pointerId);
+  });
+
+  canvas.addEventListener("pointermove", (event) => {
+    const worldPoint = eventToWorld(event);
+
+    if (state.dragging.active && event.pointerId === state.dragging.pointerId) {
+      const selected = getSelectedShape();
+      if (!selected) {
+        return;
+      }
+
+      selected.x = Math.round(worldPoint.x - state.dragging.offsetX);
+      selected.y = Math.round(worldPoint.y - state.dragging.offsetY);
+
+      syncControlsFromShape(selected);
+      updateMatrixDisplay();
+      canvas.style.cursor = "grabbing";
+      return;
+    }
+
+    if (state.pickingPivot) {
+      canvas.style.cursor = "crosshair";
+      return;
+    }
+
+    const hovered = pickTopmostShape(worldPoint);
+    canvas.style.cursor = hovered ? "grab" : "default";
+  });
+
+  const stopDragging = (event) => {
+    if (!state.dragging.active || event.pointerId !== state.dragging.pointerId) {
+      return;
+    }
+
+    state.dragging.active = false;
+    state.dragging.pointerId = null;
+    canvas.style.cursor = "default";
+
+    if (canvas.hasPointerCapture(event.pointerId)) {
+      canvas.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  canvas.addEventListener("pointerup", stopDragging);
+  canvas.addEventListener("pointercancel", stopDragging);
+  canvas.addEventListener("pointerleave", (event) => {
+    if (!state.dragging.active) {
+      canvas.style.cursor = "default";
+      return;
+    }
+
+    stopDragging(event);
+  });
+}
+
