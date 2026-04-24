@@ -190,3 +190,20 @@ select#shapeList {
   font-size: 0.84rem;
 }
 
+#matrixOutput {
+  margin: 0;
+  padding: 0.6rem;
+  border-radius: 10px;
+  border: 1px solid rgba(20, 33, 43, 0.12);
+  background: rgba(17, 34, 51, 0.94);
+  color: #e3edf3;
+  font-family: "IBM Plex Mono", Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.explanation p {
+  margin: 0.36rem 0;
+  color: var(--text-soft);

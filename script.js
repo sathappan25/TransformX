@@ -632,3 +632,61 @@ function invertAffineMatrix(matrix) {
   const f = matrix[1][2];
 
   const determinant = a * d - b * c;
+  if (Math.abs(determinant) < 1e-9) {
+    return null;
+  }
+
+  const inverseDet = 1 / determinant;
+  return [
+    [d * inverseDet, -c * inverseDet, (c * f - d * e) * inverseDet],
+    [-b * inverseDet, a * inverseDet, (b * e - a * f) * inverseDet],
+    [0, 0, 1]
+  ];
+}
+
+function getLocalPivot(shape) {
+  if (shape.pivotMode === "custom") {
+    return {
+      x: shape.pivot.x - shape.x,
+      y: shape.pivot.y - shape.y
+    };
+  }
+
+  return { x: 0, y: 0 };
+}
+
+function getShapeTransformMatrix(shape) {
+  const pivot = getLocalPivot(shape);
+  const angle = toRadians(shape.rotation);
+
+  let matrix = identityMatrix();
+  matrix = multiplyMatrices(matrix, translationMatrix(shape.x, shape.y));
+  matrix = multiplyMatrices(matrix, translationMatrix(pivot.x, pivot.y));
+  matrix = multiplyMatrices(matrix, rotationMatrix(angle));
+  matrix = multiplyMatrices(matrix, scaleMatrix(shape.scaleX, shape.scaleY));
+  matrix = multiplyMatrices(matrix, translationMatrix(-pivot.x, -pivot.y));
+
+  return matrix;
+}
+
+function updateMatrixDisplay() {
+  const shape = getSelectedShape();
+  if (!shape) {
+    ui.matrixOutput.textContent = "Select a shape to view matrix values.";
+    return;
+  }
+
+  const matrix = getShapeTransformMatrix(shape);
+  const rows = matrix.map(
+    (row) =>
+      row
+        .map((value) => value.toFixed(3).padStart(9, " "))
+        .join(" ")
+  );
+
+  const pivotText =
+    shape.pivotMode === "custom"
+      ? `Custom Pivot: (${shape.pivot.x.toFixed(1)}, ${shape.pivot.y.toFixed(1)})`
+      : "Pivot: Shape center";
+
+  ui.matrixOutput.textContent = `${rows.join("\n")}\n\n${pivotText}`;
