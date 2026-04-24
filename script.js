@@ -517,3 +517,61 @@ function setupControlHandlers() {
 
   ui.resetAllBtn.addEventListener("click", () => {
     resetAllShapes();
+  });
+
+  for (const button of testButtons) {
+    button.addEventListener("click", () => {
+      applySampleTest(Number(button.dataset.test));
+    });
+  }
+}
+
+function applySampleTest(testId) {
+  const shape = getSelectedShape();
+  if (!shape) {
+    return;
+  }
+
+  if (testId === 1) {
+    shape.x = 180;
+    shape.y = -60;
+    shape.rotation = 42;
+    shape.scaleX = 1.2;
+    shape.scaleY = 0.85;
+    shape.pivotMode = "center";
+    shape.animation.active = false;
+  } else if (testId === 2) {
+    shape.x = -165;
+    shape.y = 95;
+    shape.rotation = -27;
+    shape.scaleX = 1.65;
+    shape.scaleY = 1.18;
+    shape.pivotMode = "center";
+    shape.animation.active = false;
+  } else {
+    shape.x = 60;
+    shape.y = 45;
+    shape.rotation = 15;
+    shape.scaleX = 1;
+    shape.scaleY = 1;
+    shape.pivotMode = "custom";
+    shape.pivot = { x: -80, y: -70 };
+    shape.animation.mode = "rotate";
+    shape.animation.speed = 1.6;
+    shape.animation.active = true;
+  }
+
+  shape.animation.baseScaleX = shape.scaleX;
+  shape.animation.baseScaleY = shape.scaleY;
+  syncControlsFromShape(shape);
+  updateMatrixDisplay();
+}
+
+function identityMatrix() {
+  return [
+    [1, 0, 0],
+    [0, 1, 0],
+    [0, 0, 1]
+  ];
+}
+
