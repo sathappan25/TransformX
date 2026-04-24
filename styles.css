@@ -85,3 +85,21 @@ label {
   color: var(--text-soft);
 }
 
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.row label {
+  flex: 1;
+}
+
+.row.space-top,
+.space-top {
+  margin-top: 0.5rem;
+}
+
+.control {
+  margin-top: 0.45rem;
+}

@@ -287,3 +287,60 @@ function deleteSelectedShape() {
   }
 
   refreshShapeList();
+  updateSelectedShapeLabel();
+  syncControlsFromShape(getSelectedShape());
+  updateMatrixDisplay();
+}
+
+function resetShape(shape) {
+  shape.x = shape.initial.x;
+  shape.y = shape.initial.y;
+  shape.rotation = shape.initial.rotation;
+  shape.scaleX = shape.initial.scaleX;
+  shape.scaleY = shape.initial.scaleY;
+  shape.pivotMode = shape.initial.pivotMode;
+  shape.pivot = {
+    x: shape.initial.pivot.x,
+    y: shape.initial.pivot.y
+  };
+  shape.animation.active = false;
+  shape.animation.mode = "none";
+  shape.animation.speed = 1;
+  shape.animation.phase = 0;
+  shape.animation.baseScaleX = shape.scaleX;
+  shape.animation.baseScaleY = shape.scaleY;
+}
+
+function resetAllShapes() {
+  for (const shape of state.shapes) {
+    resetShape(shape);
+  }
+  syncControlsFromShape(getSelectedShape());
+  updateMatrixDisplay();
+}
+
+function updatePivotInputsState() {
+  const useCustomPivot = ui.pivotMode.value === "custom";
+  ui.pivotX.disabled = !useCustomPivot;
+  ui.pivotY.disabled = !useCustomPivot;
+}
+
+function updateAnimationButtonLabel() {
+  const shape = getSelectedShape();
+  if (!shape) {
+    ui.toggleAnimationBtn.textContent = "Start Animation";
+    return;
+  }
+
+  ui.toggleAnimationBtn.textContent = shape.animation.active
+    ? "Pause Animation"
+    : "Start Animation";
+}
+
+function bindRangeInput(rangeElement, numberElement, onChange) {
+  const applyChange = (value) => {
+    const parsed = Number(value);
+    if (Number.isNaN(parsed)) {
+      return;
+    }
+
