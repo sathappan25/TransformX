@@ -575,3 +575,60 @@ function identityMatrix() {
   ];
 }
 
+function multiplyMatrices(a, b) {
+  const result = identityMatrix();
+
+  for (let row = 0; row < 3; row += 1) {
+    for (let col = 0; col < 3; col += 1) {
+      result[row][col] =
+        a[row][0] * b[0][col] +
+        a[row][1] * b[1][col] +
+        a[row][2] * b[2][col];
+    }
+  }
+
+  return result;
+}
+
+function translationMatrix(tx, ty) {
+  return [
+    [1, 0, tx],
+    [0, 1, ty],
+    [0, 0, 1]
+  ];
+}
+
+function rotationMatrix(angleRadians) {
+  const cos = Math.cos(angleRadians);
+  const sin = Math.sin(angleRadians);
+  return [
+    [cos, -sin, 0],
+    [sin, cos, 0],
+    [0, 0, 1]
+  ];
+}
+
+function scaleMatrix(sx, sy) {
+  return [
+    [sx, 0, 0],
+    [0, sy, 0],
+    [0, 0, 1]
+  ];
+}
+
+function applyMatrix(matrix, point) {
+  return {
+    x: matrix[0][0] * point.x + matrix[0][1] * point.y + matrix[0][2],
+    y: matrix[1][0] * point.x + matrix[1][1] * point.y + matrix[1][2]
+  };
+}
+
+function invertAffineMatrix(matrix) {
+  const a = matrix[0][0];
+  const c = matrix[0][1];
+  const e = matrix[0][2];
+  const b = matrix[1][0];
+  const d = matrix[1][1];
+  const f = matrix[1][2];
+
+  const determinant = a * d - b * c;

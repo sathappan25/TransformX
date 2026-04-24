@@ -102,3 +102,14 @@
         <section class="panel">
           <h2>Animation</h2>
           <label for="animationMode">Animation type</label>
+          <select id="animationMode">
+            <option value="none">None</option>
+            <option value="rotate">Continuous Rotation</option>
+            <option value="scale">Scaling Pulse</option>
+          </select>
+
+          <div class="control">
+            <label for="animSpeedRange">Speed</label>
+            <div class="pair">
+              <input id="animSpeedRange" type="range" min="0.2" max="5" step="0.1" value="1" />
+              <input id="animSpeedInput" type="number" min="0.2" max="5" step="0.1" value="1" />
