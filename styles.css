@@ -1,0 +1,18 @@
+:root {
+  --bg-1: #f4f6f8;
+  --bg-2: #e7f0f5;
+  --bg-3: #f8f5ef;
+  --panel: rgba(255, 255, 255, 0.86);
+  --panel-border: rgba(17, 34, 51, 0.14);
+  --text-main: #14212b;
+  --text-soft: #405569;
+  --accent: #ef6c2f;
+  --accent-2: #0d8a85;
+  --danger: #c84848;
+  --shadow: 0 16px 40px rgba(20, 33, 43, 0.14);
+}
+
+* {
+  box-sizing: border-box;
+}
+
