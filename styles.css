@@ -137,3 +137,21 @@ select#shapeList {
   width: 100%;
   min-height: 86px;
   margin-top: 0.35rem;
+}
+
+.btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 0.45rem 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: #ffffff;
+  background: linear-gradient(140deg, var(--accent), #ff8b52);
+  transition: transform 140ms ease, box-shadow 140ms ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(239, 108, 47, 0.24);
+}
+

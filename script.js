@@ -460,3 +460,60 @@ function setupControlHandlers() {
   });
 
   bindRangeInput(ui.animSpeedRange, ui.animSpeedInput, (value) => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+    shape.animation.speed = clamp(value, 0.2, 5);
+  });
+
+  ui.toggleAnimationBtn.addEventListener("click", () => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+
+    if (!shape.animation.active) {
+      if (shape.animation.mode === "none") {
+        shape.animation.mode = "rotate";
+        ui.animationMode.value = "rotate";
+      }
+      shape.animation.baseScaleX = shape.scaleX;
+      shape.animation.baseScaleY = shape.scaleY;
+      shape.animation.active = true;
+    } else {
+      shape.animation.active = false;
+    }
+
+    updateAnimationButtonLabel();
+  });
+
+  ui.stopAnimationBtn.addEventListener("click", () => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+    shape.animation.active = false;
+    updateAnimationButtonLabel();
+  });
+
+  ui.showOriginal.addEventListener("change", () => {
+    state.showOriginal = ui.showOriginal.checked;
+  });
+
+  ui.showPseudo3D.addEventListener("change", () => {
+    state.showPseudo3D = ui.showPseudo3D.checked;
+  });
+
+  ui.resetSelectedBtn.addEventListener("click", () => {
+    const shape = getSelectedShape();
+    if (!shape) {
+      return;
+    }
+    resetShape(shape);
+    syncControlsFromShape(shape);
+    updateMatrixDisplay();
+  });
+
+  ui.resetAllBtn.addEventListener("click", () => {
+    resetAllShapes();
