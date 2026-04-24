@@ -114,3 +114,60 @@ function buildTemplate(type) {
   if (type === "triangle") {
     return {
       label: "Triangle",
+      points: [
+        { x: 0, y: -72 },
+        { x: 84, y: 58 },
+        { x: -84, y: 58 }
+      ]
+    };
+  }
+
+  if (type === "pentagon") {
+    const points = [];
+    const radius = 78;
+
+    for (let i = 0; i < 5; i += 1) {
+      const angle = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
+      points.push({
+        x: radius * Math.cos(angle),
+        y: radius * Math.sin(angle)
+      });
+    }
+
+    return {
+      label: "Pentagon",
+      points
+    };
+  }
+
+  return {
+    label: "Rectangle",
+    points: [
+      { x: -85, y: -58 },
+      { x: 85, y: -58 },
+      { x: 85, y: 58 },
+      { x: -85, y: 58 }
+    ]
+  };
+}
+
+function createShape(type) {
+  const template = buildTemplate(type);
+  const index = state.shapes.length;
+  const offsetX = -120 + (index % 4) * 85;
+  const offsetY = -95 + Math.floor(index / 4) * 85;
+  const color = palette[index % palette.length];
+
+  return {
+    id: state.nextId++,
+    name: `${template.label} ${index + 1}`,
+    type,
+    points: template.points,
+    fill: color,
+    x: offsetX,
+    y: offsetY,
+    rotation: 0,
+    scaleX: 1,
+    scaleY: 1,
+    pivotMode: "center",
+    pivot: { x: 0, y: 0 },
