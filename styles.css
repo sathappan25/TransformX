@@ -311,3 +311,20 @@ select#shapeList {
 }
 
 @media (max-width: 680px) {
+  .app-shell {
+    width: 98vw;
+    margin: 0.5rem auto;
+  }
+
+  .canvas-header {
+    flex-direction: column;
+  }
+
+  .pair {
+    grid-template-columns: 1fr 76px;
+  }
+
+  .actions {
+    grid-template-columns: 1fr;
+  }
+}

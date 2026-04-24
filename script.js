@@ -1036,3 +1036,60 @@ function setupCanvasInteraction() {
   });
 }
 
+function updateAnimations(deltaSeconds) {
+  for (const shape of state.shapes) {
+    if (!shape.animation.active || shape.animation.mode === "none") {
+      continue;
+    }
+
+    if (shape.animation.mode === "rotate") {
+      shape.rotation = normalizeAngle(
+        shape.rotation + 70 * shape.animation.speed * deltaSeconds
+      );
+    }
+
+    if (shape.animation.mode === "scale") {
+      shape.animation.phase += deltaSeconds * shape.animation.speed * 3;
+      const pulseX = 1 + 0.34 * Math.sin(shape.animation.phase);
+      const pulseY = 1 + 0.34 * Math.cos(shape.animation.phase);
+      shape.scaleX = clamp(shape.animation.baseScaleX * pulseX, 0.2, 3);
+      shape.scaleY = clamp(shape.animation.baseScaleY * pulseY, 0.2, 3);
+    }
+  }
+
+  const selected = getSelectedShape();
+  if (selected && selected.animation.active) {
+    syncControlsFromShape(selected);
+    updateMatrixDisplay();
+  }
+}
+
+function frame(now) {
+  resizeCanvas();
+
+  const deltaSeconds = Math.min((now - state.lastFrameTime) / 1000, 0.08);
+  state.lastFrameTime = now;
+
+  updateAnimations(deltaSeconds);
+  drawScene();
+
+  requestAnimationFrame(frame);
+}
+
+function initialize() {
+  setupControlHandlers();
+  setupCanvasInteraction();
+
+  addShape("rectangle");
+  addShape("triangle");
+
+  selectShapeById(state.shapes[0].id);
+  updatePivotInputsState();
+  updateMatrixDisplay();
+
+  window.addEventListener("resize", resizeCanvas);
+  resizeCanvas();
+  requestAnimationFrame(frame);
+}
+
+initialize();
