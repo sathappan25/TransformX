@@ -1023,6 +1023,9 @@ async function requestJson(path, options = {}) {
 }
 
 async function saveAndShareScene() {
+  console.log("saveAndShareScene called");
+  setStatus(ui.cloudStatus, "Saving scene...", "info");
+
   const scenePayload = {
     name: ui.sceneName.value.trim() || "Untitled Scene",
     data: serializeScene()
@@ -1032,17 +1035,20 @@ async function saveAndShareScene() {
     let result;
 
     if (state.activeSceneId) {
+      console.log("Updating scene:", state.activeSceneId);
       result = await requestJson(`/scenes/${state.activeSceneId}`, {
         method: "PUT",
         body: scenePayload
       });
     } else {
+      console.log("Creating new scene");
       result = await requestJson("/scenes", {
         method: "POST",
         body: scenePayload
       });
     }
 
+    console.log("Save result:", result);
     state.activeSceneId = result.scene.id;
     const shareId = result.scene.shareId;
     const shareUrl = `${window.location.origin}/?scene=${shareId}`;
@@ -1050,6 +1056,7 @@ async function saveAndShareScene() {
     ui.sceneName.value = result.scene.name;
     setStatus(ui.cloudStatus, "Scene saved! Share link ready.", "success");
   } catch (error) {
+    console.error("Save failed:", error);
     setStatus(ui.cloudStatus, error.message, "error");
   }
 }
