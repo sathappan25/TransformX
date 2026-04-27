@@ -1,6 +1,12 @@
 import { palette } from "./config.js";
 import { clamp, normalizeAngle, toRadians } from "./math-utils.js";
 
+const API_BASE = "/api";
+const API_ORIGIN = window.location.protocol.startsWith("http")
+  ? ""
+  : "http://localhost:3000";
+const TOKEN_STORAGE_KEY = "transformx_auth_token";
+
 const canvas = document.getElementById("sceneCanvas");
 const ctx = canvas.getContext("2d");
 
@@ -34,7 +40,25 @@ const ui = {
 
   resetSelectedBtn: document.getElementById("resetSelectedBtn"),
   resetAllBtn: document.getElementById("resetAllBtn"),
-  matrixOutput: document.getElementById("matrixOutput")
+  matrixOutput: document.getElementById("matrixOutput"),
+
+  authName: document.getElementById("authName"),
+  authEmail: document.getElementById("authEmail"),
+  authPassword: document.getElementById("authPassword"),
+  signupBtn: document.getElementById("signupBtn"),
+  loginBtn: document.getElementById("loginBtn"),
+  logoutBtn: document.getElementById("logoutBtn"),
+  authStatus: document.getElementById("authStatus"),
+
+  sceneName: document.getElementById("sceneName"),
+  saveSceneBtn: document.getElementById("saveSceneBtn"),
+  refreshScenesBtn: document.getElementById("refreshScenesBtn"),
+  savedScenes: document.getElementById("savedScenes"),
+  loadSceneBtn: document.getElementById("loadSceneBtn"),
+  shareSceneBtn: document.getElementById("shareSceneBtn"),
+  shareLink: document.getElementById("shareLink"),
+  copyShareBtn: document.getElementById("copyShareBtn"),
+  cloudStatus: document.getElementById("cloudStatus")
 };
 
 const testButtons = Array.from(document.querySelectorAll(".test-grid .test"));
@@ -51,8 +75,31 @@ const state = {
     pointerId: null,
     lastX: 0,
     lastY: 0
-  }
+  },
+  auth: {
+    token: null,
+    user: null
+  },
+  activeSceneId: null,
+  sceneSummaries: []
 };
+
+function setStatus(element, message, tone = "info") {
+  if (!element) {
+    return;
+  }
+
+  element.textContent = message;
+  element.classList.remove("status-error", "status-success");
+
+  if (tone === "error") {
+    element.classList.add("status-error");
+  }
+
+  if (tone === "success") {
+    element.classList.add("status-success");
+  }
+}
 
 function getCanvasCenter() {
   return {
@@ -137,7 +184,6 @@ function createConeGeometry(radius = 70, height = 170, segments = 18) {
   for (let i = 0; i < segments; i += 1) {
     const rim = 1 + i;
     const next = 1 + ((i + 1) % segments);
-
     edges.push([0, rim]);
     edges.push([rim, next]);
     edges.push([centerIndex, rim]);
@@ -152,25 +198,25 @@ function createConeGeometry(radius = 70, height = 170, segments = 18) {
 function buildTemplate(type) {
   if (type === "cuboid") {
     return {
-      label: "Cuboid",
-      ...createCuboidGeometry()
+      ...createCuboidGeometry(),
+      label: "cuboid"
     };
   }
 
   if (type === "cone") {
     return {
-      label: "Cone",
-      ...createConeGeometry()
+      ...createConeGeometry(),
+      label: "cone"
     };
   }
 
   return {
-    label: "Cube",
-    ...createCubeGeometry()
+    ...createCubeGeometry(),
+    label: "cube"
   };
 }
 
-function createObject(type) {
+function createObject(type, overrides = {}) {
   const template = buildTemplate(type);
   const index = state.objects.length;
   const column = index % 3;
@@ -178,54 +224,69 @@ function createObject(type) {
   const tx = -190 + column * 190;
   const ty = 0;
   const tz = row * 120;
-  const typeIndex = state.objects.filter((object3d) => object3d.type === type).length + 1;
+  const typeIndex = state.objects.filter((entry) => entry.type === type).length + 1;
 
-  return {
+  const object3d = {
     id: state.nextId++,
-    name: `${type}${typeIndex}`,
     type,
+    name: overrides.name || `${template.label}${typeIndex}`,
     vertices: template.vertices,
     edges: template.edges,
-    color: palette[index % palette.length],
-    tx,
-    ty,
-    tz,
-    rx: 0,
-    ry: 0,
-    rz: 0,
-    sx: 1,
-    sy: 1,
-    sz: 1,
+    color: overrides.color || palette[index % palette.length],
+    tx: overrides.tx ?? tx,
+    ty: overrides.ty ?? ty,
+    tz: overrides.tz ?? tz,
+    rx: overrides.rx ?? 0,
+    ry: overrides.ry ?? 0,
+    rz: overrides.rz ?? 0,
+    sx: overrides.sx ?? 1,
+    sy: overrides.sy ?? 1,
+    sz: overrides.sz ?? 1,
     initial: {
-      tx,
-      ty,
-      tz,
-      rx: 0,
-      ry: 0,
-      rz: 0,
-      sx: 1,
-      sy: 1,
-      sz: 1
+      tx: overrides.tx ?? tx,
+      ty: overrides.ty ?? ty,
+      tz: overrides.tz ?? tz,
+      rx: overrides.rx ?? 0,
+      ry: overrides.ry ?? 0,
+      rz: overrides.rz ?? 0,
+      sx: overrides.sx ?? 1,
+      sy: overrides.sy ?? 1,
+      sz: overrides.sz ?? 1
     }
   };
+
+  return object3d;
 }
 
 function getSelectedObject() {
-  return state.objects.find((object3d) => object3d.id === state.selectedId) || null;
+  return state.objects.find((entry) => entry.id === state.selectedId) || null;
 }
 
 function refreshObjectList() {
   ui.objectList.innerHTML = "";
 
-  for (const object3d of state.objects) {
+  for (const entry of state.objects) {
     const option = document.createElement("option");
-    option.value = String(object3d.id);
-    option.textContent = object3d.name;
-    if (object3d.id === state.selectedId) {
+    option.value = String(entry.id);
+    option.textContent = entry.name;
+
+    if (entry.id === state.selectedId) {
       option.selected = true;
     }
+
     ui.objectList.appendChild(option);
   }
+}
+
+function updateSelectedObjectLabel() {
+  const object3d = getSelectedObject();
+
+  if (!object3d) {
+    ui.selectedObjectLabel.textContent = "No object selected.";
+    return;
+  }
+
+  ui.selectedObjectLabel.textContent = `Selected: ${object3d.name}`;
 }
 
 function setPairValues(rangeElement, inputElement, value) {
@@ -251,23 +312,13 @@ function syncControlsFromObject(object3d) {
   setPairValues(ui.szRange, ui.szInput, Number(object3d.sz.toFixed(2)));
 }
 
-function updateSelectedObjectLabel() {
-  const object3d = getSelectedObject();
-
-  if (!object3d) {
-    ui.selectedObjectLabel.textContent = "No object selected.";
-    return;
-  }
-
-  ui.selectedObjectLabel.textContent = `Selected: ${object3d.name}`;
-}
-
 function selectObjectById(id) {
-  state.selectedId = id;
+  const object3d = state.objects.find((entry) => entry.id === id);
+  state.selectedId = object3d ? id : null;
+
   refreshObjectList();
-  const object3d = getSelectedObject();
-  syncControlsFromObject(object3d);
   updateSelectedObjectLabel();
+  syncControlsFromObject(getSelectedObject());
   updateMatrixDisplay();
   renderScene();
 }
@@ -305,16 +356,21 @@ function deleteSelectedObject() {
     return;
   }
 
-  state.objects = state.objects.filter((object3d) => object3d.id !== selected.id);
+  state.objects = state.objects.filter((entry) => entry.id !== selected.id);
 
-  if (state.objects.length > 0) {
-    selectObjectById(state.objects[state.objects.length - 1].id);
+  if (state.objects.length === 0) {
+    state.selectedId = null;
+    refreshObjectList();
+    updateSelectedObjectLabel();
+    updateMatrixDisplay();
+    renderScene();
     return;
   }
 
-  state.selectedId = null;
+  state.selectedId = state.objects[state.objects.length - 1].id;
   refreshObjectList();
   updateSelectedObjectLabel();
+  syncControlsFromObject(getSelectedObject());
   updateMatrixDisplay();
   renderScene();
 }
@@ -329,7 +385,7 @@ function resetAllObjects() {
   renderScene();
 }
 
-function bindRangeInput(rangeElement, numberElement, onChange) {
+function bindRangeInput(rangeElement, inputElement, onChange) {
   const applyChange = (rawValue) => {
     let parsed = Number(rawValue);
     if (Number.isNaN(parsed)) {
@@ -344,12 +400,12 @@ function bindRangeInput(rangeElement, numberElement, onChange) {
     }
 
     rangeElement.value = String(parsed);
-    numberElement.value = String(parsed);
+    inputElement.value = String(parsed);
     onChange(parsed);
   };
 
   rangeElement.addEventListener("input", () => applyChange(rangeElement.value));
-  numberElement.addEventListener("input", () => applyChange(numberElement.value));
+  inputElement.addEventListener("input", () => applyChange(inputElement.value));
 }
 
 function setupControlHandlers() {
@@ -706,21 +762,6 @@ function transformVertices(object3d) {
   return object3d.vertices.map((vertex) => applyMatrix4(matrix, vertex));
 }
 
-function updateMatrixDisplay() {
-  const object3d = getSelectedObject();
-  if (!object3d) {
-    ui.matrixOutput.textContent = "Select an object to view matrix values.";
-    return;
-  }
-
-  const matrix = buildTransformMatrix(object3d);
-  const rows = matrix.map((row) => row.map((value) => value.toFixed(3).padStart(10, " ")).join(" "));
-  const yawDegrees = (state.cameraYaw * 180) / Math.PI;
-  const pitchDegrees = (state.cameraPitch * 180) / Math.PI;
-
-  ui.matrixOutput.textContent = `${rows.join("\n")}\n\nCamera Distance: ${state.cameraDistance.toFixed(1)}\nCamera Yaw: ${yawDegrees.toFixed(1)} deg\nCamera Pitch: ${pitchDegrees.toFixed(1)} deg`;
-}
-
 function applyCameraView(point) {
   const cosYaw = Math.cos(state.cameraYaw);
   const sinYaw = Math.sin(state.cameraYaw);
@@ -740,6 +781,7 @@ function applyCameraView(point) {
 function projectPoint(point) {
   const viewedPoint = applyCameraView(point);
   const depth = state.cameraDistance + viewedPoint.z;
+
   if (depth < 45) {
     return null;
   }
@@ -774,15 +816,15 @@ function drawAxes() {
   const axisLength = 250;
   const origin = { x: 0, y: 0, z: 0 };
 
-  drawProjectedLine(origin, { x: axisLength, y: 0, z: 0 }, "rgba(156, 16, 53, 0.88)", 2.3);
-  drawProjectedLine(origin, { x: 0, y: axisLength, z: 0 }, "rgba(122, 34, 62, 0.82)", 2.3);
+  drawProjectedLine(origin, { x: axisLength, y: 0, z: 0 }, "rgba(156, 16, 53, 0.88)", 2.4);
+  drawProjectedLine(origin, { x: 0, y: axisLength, z: 0 }, "rgba(122, 34, 62, 0.82)", 2.4);
   drawProjectedLine(origin, { x: 0, y: 0, z: axisLength }, "rgba(198, 20, 68, 0.98)", 3.2);
 
   const xTip = projectPoint({ x: axisLength, y: 0, z: 0 });
   const yTip = projectPoint({ x: 0, y: axisLength, z: 0 });
   const zTip = projectPoint({ x: 0, y: 0, z: axisLength });
 
-  ctx.fillStyle = "rgba(20, 33, 43, 0.85)";
+  ctx.fillStyle = "rgba(42, 15, 24, 0.88)";
   ctx.font = "12px 'IBM Plex Mono', monospace";
 
   if (xTip) {
@@ -833,6 +875,22 @@ function drawObjectWireframe(entry, selected) {
   }
 }
 
+function updateMatrixDisplay() {
+  const object3d = getSelectedObject();
+  const yawDegrees = (state.cameraYaw * 180) / Math.PI;
+  const pitchDegrees = (state.cameraPitch * 180) / Math.PI;
+
+  if (!object3d) {
+    ui.matrixOutput.textContent = `No object selected.\n\nCamera Distance: ${state.cameraDistance.toFixed(1)}\nCamera Yaw: ${yawDegrees.toFixed(1)} deg\nCamera Pitch: ${pitchDegrees.toFixed(1)} deg`;
+    return;
+  }
+
+  const matrix = buildTransformMatrix(object3d);
+  const rows = matrix.map((row) => row.map((value) => value.toFixed(3).padStart(10, " ")).join(" "));
+
+  ui.matrixOutput.textContent = `${rows.join("\n")}\n\nCamera Distance: ${state.cameraDistance.toFixed(1)}\nCamera Yaw: ${yawDegrees.toFixed(1)} deg\nCamera Pitch: ${pitchDegrees.toFixed(1)} deg`;
+}
+
 function renderScene() {
   resizeCanvas();
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -841,42 +899,469 @@ function renderScene() {
   const drawQueue = state.objects
     .map((object3d) => {
       const transformed = transformVertices(object3d);
-      const avgZ = transformed.reduce((sum, point) => sum + point.z, 0) / transformed.length;
+      const avgViewZ = transformed
+        .map((point) => applyCameraView(point).z)
+        .reduce((sum, value) => sum + value, 0) / transformed.length;
 
       return {
         object3d,
         transformed,
-        avgZ
+        avgViewZ
       };
     })
-    .sort((a, b) => a.avgZ - b.avgZ);
+    .sort((a, b) => a.avgViewZ - b.avgViewZ);
 
   for (const entry of drawQueue) {
     drawObjectWireframe(entry, entry.object3d.id === state.selectedId);
   }
 
-  // Draw axes after objects so axis lines remain visible in crowded scenes.
   drawAxes();
 
   if (drawQueue.length === 0) {
-    ctx.fillStyle = "rgba(20, 33, 43, 0.75)";
+    ctx.fillStyle = "rgba(42, 15, 24, 0.78)";
     ctx.font = "14px 'IBM Plex Mono', monospace";
-    ctx.fillText("Add a 3D object to start", 16, 24);
+    ctx.fillText("Select object type and click Add", 16, 24);
   }
 }
 
-function initialize() {
+function serializeScene() {
+  return {
+    camera: {
+      distance: state.cameraDistance,
+      yaw: state.cameraYaw,
+      pitch: state.cameraPitch
+    },
+    selectedObjectName: getSelectedObject() ? getSelectedObject().name : null,
+    objects: state.objects.map((object3d) => ({
+      type: object3d.type,
+      name: object3d.name,
+      color: object3d.color,
+      tx: object3d.tx,
+      ty: object3d.ty,
+      tz: object3d.tz,
+      rx: object3d.rx,
+      ry: object3d.ry,
+      rz: object3d.rz,
+      sx: object3d.sx,
+      sy: object3d.sy,
+      sz: object3d.sz
+    }))
+  };
+}
+
+function loadSceneData(sceneData) {
+  state.objects = [];
+  state.selectedId = null;
+  state.nextId = 1;
+
+  if (sceneData && sceneData.camera) {
+    state.cameraDistance = clamp(Number(sceneData.camera.distance) || 620, 280, 1400);
+    state.cameraYaw = Number.isFinite(sceneData.camera.yaw) ? sceneData.camera.yaw : toRadians(-42);
+    state.cameraPitch = clamp(
+      Number.isFinite(sceneData.camera.pitch) ? sceneData.camera.pitch : toRadians(16),
+      toRadians(-80),
+      toRadians(80)
+    );
+  }
+
+  if (sceneData && Array.isArray(sceneData.objects)) {
+    for (const savedObject of sceneData.objects) {
+      const objectType =
+        savedObject && (savedObject.type === "cube" || savedObject.type === "cuboid" || savedObject.type === "cone")
+          ? savedObject.type
+          : "cube";
+
+      const object3d = createObject(objectType, {
+        name: savedObject.name,
+        color: savedObject.color,
+        tx: savedObject.tx,
+        ty: savedObject.ty,
+        tz: savedObject.tz,
+        rx: savedObject.rx,
+        ry: savedObject.ry,
+        rz: savedObject.rz,
+        sx: savedObject.sx,
+        sy: savedObject.sy,
+        sz: savedObject.sz
+      });
+
+      state.objects.push(object3d);
+    }
+  }
+
+  let selected = null;
+  if (sceneData && sceneData.selectedObjectName) {
+    selected = state.objects.find((entry) => entry.name === sceneData.selectedObjectName) || null;
+  }
+
+  if (!selected && state.objects.length > 0) {
+    selected = state.objects[0];
+  }
+
+  state.selectedId = selected ? selected.id : null;
+  refreshObjectList();
+  updateSelectedObjectLabel();
+  syncControlsFromObject(getSelectedObject());
+  updateMatrixDisplay();
+  renderScene();
+}
+
+function getStoredToken() {
+  return localStorage.getItem(TOKEN_STORAGE_KEY);
+}
+
+function setStoredToken(token) {
+  if (token) {
+    localStorage.setItem(TOKEN_STORAGE_KEY, token);
+    return;
+  }
+
+  localStorage.removeItem(TOKEN_STORAGE_KEY);
+}
+
+async function requestJson(path, options = {}, requireAuth = false) {
+  const headers = {
+    ...(options.headers || {})
+  };
+
+  if (options.body !== undefined && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
+
+  if (requireAuth) {
+    if (!state.auth.token) {
+      throw new Error("Please log in first.");
+    }
+
+    headers.Authorization = `Bearer ${state.auth.token}`;
+  }
+
+  const response = await fetch(`${API_ORIGIN}${API_BASE}${path}`, {
+    ...options,
+    headers,
+    body:
+      options.body !== undefined && typeof options.body !== "string"
+        ? JSON.stringify(options.body)
+        : options.body
+  });
+
+  let payload = null;
+  try {
+    payload = await response.json();
+  } catch (_error) {
+    payload = null;
+  }
+
+  if (!response.ok) {
+    const message = payload && payload.error ? payload.error : "Request failed.";
+    throw new Error(message);
+  }
+
+  return payload;
+}
+
+function updateAuthUi() {
+  if (state.auth.user) {
+    setStatus(ui.authStatus, `Logged in as ${state.auth.user.email}`, "success");
+    ui.logoutBtn.disabled = false;
+    return;
+  }
+
+  setStatus(ui.authStatus, "Not logged in.", "info");
+  ui.logoutBtn.disabled = true;
+}
+
+function clearAuthState() {
+  state.auth.token = null;
+  state.auth.user = null;
+  setStoredToken(null);
+  state.activeSceneId = null;
+  state.sceneSummaries = [];
+  ui.savedScenes.innerHTML = "";
+  ui.shareLink.value = "";
+  setStatus(ui.cloudStatus, "Log in to save, load, and share scenes.", "info");
+  updateAuthUi();
+}
+
+function applyAuthState(token, user) {
+  state.auth.token = token;
+  state.auth.user = user;
+  setStoredToken(token);
+  updateAuthUi();
+}
+
+async function handleSignup() {
+  const displayName = ui.authName.value.trim();
+  const email = ui.authEmail.value.trim();
+  const password = ui.authPassword.value;
+
+  if (!email || !password) {
+    setStatus(ui.authStatus, "Email and password are required.", "error");
+    return;
+  }
+
+  try {
+    const result = await requestJson("/auth/signup", {
+      method: "POST",
+      body: { displayName, email, password }
+    });
+
+    applyAuthState(result.token, result.user);
+    setStatus(ui.authStatus, "Signup successful.", "success");
+    await refreshScenesList();
+  } catch (error) {
+    setStatus(ui.authStatus, error.message, "error");
+  }
+}
+
+async function handleLogin() {
+  const email = ui.authEmail.value.trim();
+  const password = ui.authPassword.value;
+
+  if (!email || !password) {
+    setStatus(ui.authStatus, "Email and password are required.", "error");
+    return;
+  }
+
+  try {
+    const result = await requestJson("/auth/login", {
+      method: "POST",
+      body: { email, password }
+    });
+
+    applyAuthState(result.token, result.user);
+    setStatus(ui.authStatus, "Logged in.", "success");
+    await refreshScenesList();
+  } catch (error) {
+    setStatus(ui.authStatus, error.message, "error");
+  }
+}
+
+function setupAuthHandlers() {
+  ui.signupBtn.addEventListener("click", handleSignup);
+  ui.loginBtn.addEventListener("click", handleLogin);
+  ui.logoutBtn.addEventListener("click", () => {
+    clearAuthState();
+  });
+
+  updateAuthUi();
+}
+
+async function tryRestoreSession() {
+  const token = getStoredToken();
+  if (!token) {
+    return;
+  }
+
+  state.auth.token = token;
+
+  try {
+    const result = await requestJson("/auth/me", { method: "GET" }, true);
+    state.auth.user = result.user;
+    updateAuthUi();
+  } catch (_error) {
+    clearAuthState();
+  }
+}
+
+function populateSceneList() {
+  ui.savedScenes.innerHTML = "";
+
+  for (const scene of state.sceneSummaries) {
+    const option = document.createElement("option");
+    option.value = scene.id;
+
+    const updated = new Date(scene.updatedAt).toLocaleString();
+    option.textContent = `${scene.name} (${updated})`;
+
+    if (scene.id === state.activeSceneId) {
+      option.selected = true;
+    }
+
+    ui.savedScenes.appendChild(option);
+  }
+}
+
+async function refreshScenesList() {
+  if (!state.auth.user) {
+    ui.savedScenes.innerHTML = "";
+    setStatus(ui.cloudStatus, "Log in to save, load, and share scenes.", "info");
+    return;
+  }
+
+  try {
+    const result = await requestJson("/scenes", { method: "GET" }, true);
+    state.sceneSummaries = Array.isArray(result.scenes) ? result.scenes : [];
+    populateSceneList();
+    setStatus(ui.cloudStatus, `Loaded ${state.sceneSummaries.length} saved scenes.`, "success");
+  } catch (error) {
+    setStatus(ui.cloudStatus, error.message, "error");
+  }
+}
+
+function getSceneSelectionId() {
+  return ui.savedScenes.value || state.activeSceneId;
+}
+
+async function saveCurrentScene() {
+  if (!state.auth.user) {
+    setStatus(ui.cloudStatus, "Please log in before saving.", "error");
+    return;
+  }
+
+  const scenePayload = {
+    name: ui.sceneName.value.trim() || "Untitled Scene",
+    data: serializeScene()
+  };
+
+  try {
+    let result;
+
+    if (state.activeSceneId) {
+      result = await requestJson(`/scenes/${state.activeSceneId}`, {
+        method: "PUT",
+        body: scenePayload
+      }, true);
+    } else {
+      result = await requestJson("/scenes", {
+        method: "POST",
+        body: scenePayload
+      }, true);
+    }
+
+    state.activeSceneId = result.scene.id;
+    ui.sceneName.value = result.scene.name;
+    await refreshScenesList();
+    setStatus(ui.cloudStatus, "Scene saved successfully.", "success");
+  } catch (error) {
+    setStatus(ui.cloudStatus, error.message, "error");
+  }
+}
+
+async function loadSelectedScene() {
+  if (!state.auth.user) {
+    setStatus(ui.cloudStatus, "Please log in before loading saved scenes.", "error");
+    return;
+  }
+
+  const sceneId = getSceneSelectionId();
+  if (!sceneId) {
+    setStatus(ui.cloudStatus, "Select a saved scene first.", "error");
+    return;
+  }
+
+  try {
+    const result = await requestJson(`/scenes/${sceneId}`, { method: "GET" }, true);
+    loadSceneData(result.scene.data);
+    state.activeSceneId = result.scene.id;
+    ui.sceneName.value = result.scene.name;
+    setStatus(ui.cloudStatus, "Scene loaded.", "success");
+    populateSceneList();
+  } catch (error) {
+    setStatus(ui.cloudStatus, error.message, "error");
+  }
+}
+
+async function shareCurrentScene() {
+  if (!state.auth.user) {
+    setStatus(ui.cloudStatus, "Please log in before sharing.", "error");
+    return;
+  }
+
+  const sceneId = getSceneSelectionId();
+  if (!sceneId) {
+    setStatus(ui.cloudStatus, "Save or load a scene first.", "error");
+    return;
+  }
+
+  try {
+    const result = await requestJson(`/scenes/${sceneId}/share`, { method: "POST" }, true);
+    ui.shareLink.value = result.shareUrl;
+    setStatus(ui.cloudStatus, "Share link generated.", "success");
+  } catch (error) {
+    setStatus(ui.cloudStatus, error.message, "error");
+  }
+}
+
+async function copyShareLink() {
+  const link = ui.shareLink.value.trim();
+
+  if (!link) {
+    setStatus(ui.cloudStatus, "No share link available.", "error");
+    return;
+  }
+
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(link);
+    } else {
+      ui.shareLink.select();
+      document.execCommand("copy");
+    }
+
+    setStatus(ui.cloudStatus, "Share link copied.", "success");
+  } catch (_error) {
+    setStatus(ui.cloudStatus, "Could not copy link automatically.", "error");
+  }
+}
+
+function setupSceneCloudHandlers() {
+  ui.saveSceneBtn.addEventListener("click", saveCurrentScene);
+  ui.refreshScenesBtn.addEventListener("click", refreshScenesList);
+  ui.loadSceneBtn.addEventListener("click", loadSelectedScene);
+  ui.shareSceneBtn.addEventListener("click", shareCurrentScene);
+  ui.copyShareBtn.addEventListener("click", copyShareLink);
+
+  ui.savedScenes.addEventListener("change", () => {
+    state.activeSceneId = ui.savedScenes.value || null;
+  });
+}
+
+async function loadSharedSceneFromQueryIfPresent() {
+  const params = new URLSearchParams(window.location.search);
+  const shareId = params.get("scene");
+
+  if (!shareId) {
+    return;
+  }
+
+  try {
+    const result = await requestJson(`/share/${encodeURIComponent(shareId)}`, {
+      method: "GET"
+    });
+
+    loadSceneData(result.scene.data);
+    state.activeSceneId = null;
+    ui.sceneName.value = `${result.scene.name} (shared)`;
+    setStatus(ui.cloudStatus, "Loaded shared scene from link.", "success");
+  } catch (error) {
+    setStatus(ui.cloudStatus, `Could not load shared scene: ${error.message}`, "error");
+  }
+}
+
+function initializeEmptyWorkspace() {
+  state.objects = [];
+  state.selectedId = null;
+  refreshObjectList();
+  updateSelectedObjectLabel();
+  updateMatrixDisplay();
+  renderScene();
+}
+
+async function initialize() {
   setupControlHandlers();
   setupCanvasInteraction();
+  setupAuthHandlers();
+  setupSceneCloudHandlers();
+  initializeEmptyWorkspace();
 
-  addObject("cube");
-  addObject("cuboid");
-  addObject("cone");
+  await tryRestoreSession();
 
-  selectObjectById(state.objects[0].id);
+  if (state.auth.user) {
+    await refreshScenesList();
+  }
 
-  window.addEventListener("resize", renderScene);
-  renderScene();
+  await loadSharedSceneFromQueryIfPresent();
 }
 
 initialize();

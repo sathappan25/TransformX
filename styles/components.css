@@ -31,10 +31,15 @@
 }
 
 select#shapeList,
-select#objectList {
+select#objectList,
+select#savedScenes {
   width: 100%;
   min-height: 86px;
   margin-top: 0.35rem;
+}
+
+select#savedScenes {
+  min-height: 102px;
 }
 
 .btn {
@@ -69,6 +74,10 @@ select#objectList {
   width: 100%;
 }
 
+.btn.full {
+  width: 100%;
+}
+
 .checkbox {
   display: flex;
   align-items: center;
@@ -86,6 +95,20 @@ select#objectList {
   margin: 0.4rem 0 0;
   color: var(--text-soft);
   font-size: 0.84rem;
+}
+
+.status {
+  min-height: 1.1rem;
+}
+
+.status.status-error {
+  color: #8f0f2f;
+  font-weight: 600;
+}
+
+.status.status-success {
+  color: #8a1f3d;
+  font-weight: 600;
 }
 
 #matrixOutput {

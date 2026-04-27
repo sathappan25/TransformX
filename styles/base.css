@@ -30,6 +30,9 @@ pre {
 }
 
 input[type="number"],
+input[type="text"],
+input[type="email"],
+input[type="password"],
 select {
   width: 100%;
   border-radius: 10px;
@@ -37,6 +40,10 @@ select {
   padding: 0.42rem 0.5rem;
   background: rgba(255, 247, 250, 0.94);
   color: var(--text-main);
+}
+
+input[readonly] {
+  background: rgba(248, 230, 236, 0.92);
 }
 
 input[type="range"] {
