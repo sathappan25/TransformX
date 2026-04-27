@@ -56,8 +56,8 @@ const state = {
   nextId: 1,
   selectedId: null,
   cameraDistance: 620,
-  cameraYaw: toRadians(-42),
-  cameraPitch: toRadians(16),
+  cameraYaw: toRadians(-25),
+  cameraPitch: toRadians(12),
   orbit: {
     active: false,
     pointerId: null,
@@ -939,9 +939,9 @@ function loadSceneData(sceneData) {
 
   if (sceneData && sceneData.camera) {
     state.cameraDistance = clamp(Number(sceneData.camera.distance) || 620, 280, 1400);
-    state.cameraYaw = Number.isFinite(sceneData.camera.yaw) ? sceneData.camera.yaw : toRadians(-42);
+    state.cameraYaw = Number.isFinite(sceneData.camera.yaw) ? sceneData.camera.yaw : toRadians(-25);
     state.cameraPitch = clamp(
-      Number.isFinite(sceneData.camera.pitch) ? sceneData.camera.pitch : toRadians(16),
+      Number.isFinite(sceneData.camera.pitch) ? sceneData.camera.pitch : toRadians(12),
       toRadians(-80),
       toRadians(80)
     );
