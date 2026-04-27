@@ -1,11 +1,6 @@
 import { palette } from "./config.js";
 import { clamp, normalizeAngle, toRadians } from "./math-utils.js";
 
-const API_BASE = "/api";
-const API_ORIGIN = window.location.protocol.startsWith("http")
-  ? ""
-  : "http://localhost:3000";
-
 
 const canvas = document.getElementById("sceneCanvas");
 const ctx = canvas.getContext("2d");
@@ -93,8 +88,8 @@ function getCanvasCenter() {
 
 function resizeCanvas() {
   const rect = canvas.getBoundingClientRect();
-  const width = Math.max(460, Math.floor(rect.width));
-  const height = Math.max(420, Math.floor(rect.height));
+  const width = Math.floor(rect.width) || 460;
+  const height = Math.floor(rect.height) || 420;
 
   if (canvas.width !== width || canvas.height !== height) {
     canvas.width = width;
@@ -201,12 +196,6 @@ function buildTemplate(type) {
 
 function createObject(type, overrides = {}) {
   const template = buildTemplate(type);
-  const index = state.objects.length;
-  const column = index % 3;
-  const row = Math.floor(index / 3);
-  const tx = -190 + column * 190;
-  const ty = 0;
-  const tz = row * 120;
   const typeIndex = state.objects.filter((entry) => entry.type === type).length + 1;
 
   const object3d = {
@@ -215,10 +204,10 @@ function createObject(type, overrides = {}) {
     name: overrides.name || `${template.label}${typeIndex}`,
     vertices: template.vertices,
     edges: template.edges,
-    color: overrides.color || palette[index % palette.length],
-    tx: overrides.tx ?? tx,
-    ty: overrides.ty ?? ty,
-    tz: overrides.tz ?? tz,
+    color: overrides.color || palette[state.objects.length % palette.length],
+    tx: overrides.tx ?? 0,
+    ty: overrides.ty ?? 0,
+    tz: overrides.tz ?? 0,
     rx: overrides.rx ?? 0,
     ry: overrides.ry ?? 0,
     rz: overrides.rz ?? 0,
@@ -226,9 +215,9 @@ function createObject(type, overrides = {}) {
     sy: overrides.sy ?? 1,
     sz: overrides.sz ?? 1,
     initial: {
-      tx: overrides.tx ?? tx,
-      ty: overrides.ty ?? ty,
-      tz: overrides.tz ?? tz,
+      tx: overrides.tx ?? 0,
+      ty: overrides.ty ?? 0,
+      tz: overrides.tz ?? 0,
       rx: overrides.rx ?? 0,
       ry: overrides.ry ?? 0,
       rz: overrides.rz ?? 0,
@@ -989,75 +978,26 @@ function loadSceneData(sceneData) {
   renderScene();
 }
 
-async function requestJson(path, options = {}) {
-  const headers = {
-    ...(options.headers || {})
-  };
-
-  if (options.body !== undefined && !headers["Content-Type"]) {
-    headers["Content-Type"] = "application/json";
-  }
-
-  const response = await fetch(`${API_ORIGIN}${API_BASE}${path}`, {
-    ...options,
-    headers,
-    body:
-      options.body !== undefined && typeof options.body !== "string"
-        ? JSON.stringify(options.body)
-        : options.body
-  });
-
-  let payload = null;
-  try {
-    payload = await response.json();
-  } catch (_error) {
-    payload = null;
-  }
-
-  if (!response.ok) {
-    const message = payload && payload.error ? payload.error : "Request failed.";
-    throw new Error(message);
-  }
-
-  return payload;
+function encodeSceneToHash(sceneData) {
+  const json = JSON.stringify(sceneData);
+  return btoa(unescape(encodeURIComponent(json)));
 }
 
-async function saveAndShareScene() {
-  console.log("saveAndShareScene called");
-  setStatus(ui.cloudStatus, "Saving scene...", "info");
+function decodeSceneFromHash(hash) {
+  const json = decodeURIComponent(escape(atob(hash)));
+  return JSON.parse(json);
+}
 
-  const scenePayload = {
-    name: ui.sceneName.value.trim() || "Untitled Scene",
-    data: serializeScene()
-  };
-
+function saveAndShareScene() {
   try {
-    let result;
-
-    if (state.activeSceneId) {
-      console.log("Updating scene:", state.activeSceneId);
-      result = await requestJson(`/scenes/${state.activeSceneId}`, {
-        method: "PUT",
-        body: scenePayload
-      });
-    } else {
-      console.log("Creating new scene");
-      result = await requestJson("/scenes", {
-        method: "POST",
-        body: scenePayload
-      });
-    }
-
-    console.log("Save result:", result);
-    state.activeSceneId = result.scene.id;
-    const shareId = result.scene.shareId;
-    const shareUrl = `${window.location.origin}/?scene=${shareId}`;
+    const sceneData = serializeScene();
+    const encoded = encodeSceneToHash(sceneData);
+    const baseUrl = window.location.href.split("#")[0];
+    const shareUrl = `${baseUrl}#scene=${encoded}`;
     ui.shareLink.value = shareUrl;
-    ui.sceneName.value = result.scene.name;
-    setStatus(ui.cloudStatus, "Scene saved! Share link ready.", "success");
+    setStatus(ui.cloudStatus, "Share link ready! Copy and share it.", "success");
   } catch (error) {
-    console.error("Save failed:", error);
-    setStatus(ui.cloudStatus, error.message, "error");
+    setStatus(ui.cloudStatus, "Failed to generate share link.", "error");
   }
 }
 
@@ -1065,7 +1005,7 @@ async function copyShareLink() {
   const link = ui.shareLink.value.trim();
 
   if (!link) {
-    setStatus(ui.cloudStatus, "Save a scene first to get a share link.", "error");
+    setStatus(ui.cloudStatus, "Click Save & Share first.", "error");
     return;
   }
 
@@ -1088,26 +1028,21 @@ function setupSceneCloudHandlers() {
   ui.copyShareBtn.addEventListener("click", copyShareLink);
 }
 
-async function loadSharedSceneFromQueryIfPresent() {
-  const params = new URLSearchParams(window.location.search);
-  const shareId = params.get("scene");
+function loadSharedSceneFromHash() {
+  const hash = window.location.hash;
 
-  if (!shareId) {
+  if (!hash || !hash.startsWith("#scene=")) {
     return;
   }
 
   try {
-    const result = await requestJson(`/share/${encodeURIComponent(shareId)}`, {
-      method: "GET"
-    });
-
-    loadSceneData(result.scene.data);
-    state.activeSceneId = result.scene.id;
-    ui.sceneName.value = result.scene.name;
+    const encoded = hash.slice("#scene=".length);
+    const sceneData = decodeSceneFromHash(encoded);
+    loadSceneData(sceneData);
     ui.shareLink.value = window.location.href;
     setStatus(ui.cloudStatus, "Loaded shared scene from link.", "success");
   } catch (error) {
-    setStatus(ui.cloudStatus, `Could not load shared scene: ${error.message}`, "error");
+    setStatus(ui.cloudStatus, "Could not load shared scene.", "error");
   }
 }
 
@@ -1120,12 +1055,27 @@ function initializeEmptyWorkspace() {
   renderScene();
 }
 
-async function initialize() {
+function initialize() {
   setupControlHandlers();
   setupCanvasInteraction();
   setupSceneCloudHandlers();
-  initializeEmptyWorkspace();
-  await loadSharedSceneFromQueryIfPresent();
+
+  // Observe canvas container for size changes to keep buffer in sync
+  const canvasFrame = canvas.parentElement;
+  if (typeof ResizeObserver !== "undefined" && canvasFrame) {
+    const observer = new ResizeObserver(() => {
+      resizeCanvas();
+      renderScene();
+    });
+    observer.observe(canvasFrame);
+  }
+
+  // Defer first render to after layout settles so canvas dimensions are correct
+  requestAnimationFrame(() => {
+    resizeCanvas();
+    initializeEmptyWorkspace();
+    loadSharedSceneFromHash();
+  });
 }
 
 initialize();
