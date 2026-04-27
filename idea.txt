@@ -1,0 +1,63 @@
+Build a complete interactive web application for demonstrating geometric transformations in computer graphics.
+
+TECH STACK:
+- HTML5, CSS3, JavaScript (Vanilla JS)
+- Use HTML5 Canvas API for drawing and transformations
+
+PROJECT TITLE:
+"TransformX"
+
+CORE FEATURES:
+1. Draw basic shapes:
+   - Rectangle
+   - Triangle
+   - Polygon (optional)
+2. Apply transformations:
+   - Translation (move shape)
+   - Rotation (rotate around center and custom pivot)
+   - Scaling (increase/decrease size)
+3. Real-time controls:
+   - Sliders or input boxes for:
+     - X and Y translation
+     - Rotation angle (in degrees)
+     - Scaling factors (X and Y)
+4. Display coordinate axes/grid
+5. Show original shape and transformed shape (different colors)
+6. Reset button to restore original state
+7. Animation mode:
+   - Continuous rotation or scaling animation
+
+ADVANCED FEATURES:
+- Allow user to drag shapes with mouse
+- Allow selecting pivot point for rotation
+- Show transformation matrix values dynamically
+- Toggle between 2D and simple 3D (optional)
+- Add multiple shapes support
+
+UI REQUIREMENTS:
+- Clean modern UI (use flexbox/grid)
+- Sidebar for controls
+- Canvas in center
+- Responsive design
+
+TECHNICAL REQUIREMENTS:
+- Use Canvas methods like:
+  - translate()
+  - rotate()
+  - scale()
+  - setTransform()
+- Maintain transformation state properly
+- Use requestAnimationFrame for animation
+- Separate code into:
+  - index.html
+  - styles.css
+  - script.js
+
+OUTPUT REQUIREMENTS:
+- Provide complete working code for all files
+- Add comments explaining each transformation
+- Ensure code is beginner-friendly and well structured
+
+EXTRA:
+- Add brief explanation of how rotation, scaling, and translation work mathematically
+- Include sample test values for demonstration
