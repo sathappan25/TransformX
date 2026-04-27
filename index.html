@@ -21,51 +21,21 @@
         </header>
 
         <section class="panel">
-          <h2>Account</h2>
-
-          <label for="authName">Display Name</label>
-          <input id="authName" type="text" placeholder="For signup" />
-
-          <label for="authEmail" class="space-top">Email</label>
-          <input id="authEmail" type="email" placeholder="you@example.com" />
-
-          <label for="authPassword" class="space-top">Password</label>
-          <input id="authPassword" type="password" placeholder="Minimum 6 characters" />
-
-          <div class="actions space-top">
-            <button id="signupBtn" class="btn">Sign Up</button>
-            <button id="loginBtn" class="btn secondary">Log In</button>
-          </div>
-
-          <button id="logoutBtn" class="btn danger full space-top">Log Out</button>
-          <p id="authStatus" class="status muted">Not logged in.</p>
-        </section>
-
-        <section class="panel">
-          <h2>Scene Cloud</h2>
+          <h2>Share Scene</h2>
 
           <label for="sceneName">Scene Name</label>
           <input id="sceneName" type="text" placeholder="My transform scene" />
 
           <div class="actions space-top">
-            <button id="saveSceneBtn" class="btn">Save Scene</button>
-            <button id="refreshScenesBtn" class="btn secondary">Refresh</button>
-          </div>
-
-          <label for="savedScenes" class="space-top">Saved Scenes</label>
-          <select id="savedScenes" size="5"></select>
-
-          <div class="actions space-top">
-            <button id="loadSceneBtn" class="btn secondary">Load Selected</button>
-            <button id="shareSceneBtn" class="btn secondary">Share Link</button>
+            <button id="saveSceneBtn" class="btn">Save &amp; Share</button>
+            <button id="copyShareBtn" class="btn secondary">Copy Link</button>
           </div>
 
           <div class="pair space-top">
             <input id="shareLink" type="text" readonly placeholder="Share link appears here" />
-            <button id="copyShareBtn" class="btn">Copy</button>
           </div>
 
-          <p id="cloudStatus" class="status muted">Log in to save, load, and share scenes.</p>
+          <p id="cloudStatus" class="status muted">Save a scene to generate a shareable link.</p>
         </section>
 
         <section class="panel">

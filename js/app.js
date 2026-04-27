@@ -5,7 +5,7 @@ const API_BASE = "/api";
 const API_ORIGIN = window.location.protocol.startsWith("http")
   ? ""
   : "http://localhost:3000";
-const TOKEN_STORAGE_KEY = "transformx_auth_token";
+
 
 const canvas = document.getElementById("sceneCanvas");
 const ctx = canvas.getContext("2d");
@@ -42,20 +42,8 @@ const ui = {
   resetAllBtn: document.getElementById("resetAllBtn"),
   matrixOutput: document.getElementById("matrixOutput"),
 
-  authName: document.getElementById("authName"),
-  authEmail: document.getElementById("authEmail"),
-  authPassword: document.getElementById("authPassword"),
-  signupBtn: document.getElementById("signupBtn"),
-  loginBtn: document.getElementById("loginBtn"),
-  logoutBtn: document.getElementById("logoutBtn"),
-  authStatus: document.getElementById("authStatus"),
-
   sceneName: document.getElementById("sceneName"),
   saveSceneBtn: document.getElementById("saveSceneBtn"),
-  refreshScenesBtn: document.getElementById("refreshScenesBtn"),
-  savedScenes: document.getElementById("savedScenes"),
-  loadSceneBtn: document.getElementById("loadSceneBtn"),
-  shareSceneBtn: document.getElementById("shareSceneBtn"),
   shareLink: document.getElementById("shareLink"),
   copyShareBtn: document.getElementById("copyShareBtn"),
   cloudStatus: document.getElementById("cloudStatus")
@@ -76,12 +64,7 @@ const state = {
     lastX: 0,
     lastY: 0
   },
-  auth: {
-    token: null,
-    user: null
-  },
-  activeSceneId: null,
-  sceneSummaries: []
+  activeSceneId: null
 };
 
 function setStatus(element, message, tone = "info") {
@@ -1006,34 +989,13 @@ function loadSceneData(sceneData) {
   renderScene();
 }
 
-function getStoredToken() {
-  return localStorage.getItem(TOKEN_STORAGE_KEY);
-}
-
-function setStoredToken(token) {
-  if (token) {
-    localStorage.setItem(TOKEN_STORAGE_KEY, token);
-    return;
-  }
-
-  localStorage.removeItem(TOKEN_STORAGE_KEY);
-}
-
-async function requestJson(path, options = {}, requireAuth = false) {
+async function requestJson(path, options = {}) {
   const headers = {
     ...(options.headers || {})
   };
 
   if (options.body !== undefined && !headers["Content-Type"]) {
     headers["Content-Type"] = "application/json";
-  }
-
-  if (requireAuth) {
-    if (!state.auth.token) {
-      throw new Error("Please log in first.");
-    }
-
-    headers.Authorization = `Bearer ${state.auth.token}`;
   }
 
   const response = await fetch(`${API_ORIGIN}${API_BASE}${path}`, {
@@ -1060,155 +1022,7 @@ async function requestJson(path, options = {}, requireAuth = false) {
   return payload;
 }
 
-function updateAuthUi() {
-  if (state.auth.user) {
-    setStatus(ui.authStatus, `Logged in as ${state.auth.user.email}`, "success");
-    ui.logoutBtn.disabled = false;
-    return;
-  }
-
-  setStatus(ui.authStatus, "Not logged in.", "info");
-  ui.logoutBtn.disabled = true;
-}
-
-function clearAuthState() {
-  state.auth.token = null;
-  state.auth.user = null;
-  setStoredToken(null);
-  state.activeSceneId = null;
-  state.sceneSummaries = [];
-  ui.savedScenes.innerHTML = "";
-  ui.shareLink.value = "";
-  setStatus(ui.cloudStatus, "Log in to save, load, and share scenes.", "info");
-  updateAuthUi();
-}
-
-function applyAuthState(token, user) {
-  state.auth.token = token;
-  state.auth.user = user;
-  setStoredToken(token);
-  updateAuthUi();
-}
-
-async function handleSignup() {
-  const displayName = ui.authName.value.trim();
-  const email = ui.authEmail.value.trim();
-  const password = ui.authPassword.value;
-
-  if (!email || !password) {
-    setStatus(ui.authStatus, "Email and password are required.", "error");
-    return;
-  }
-
-  try {
-    const result = await requestJson("/auth/signup", {
-      method: "POST",
-      body: { displayName, email, password }
-    });
-
-    applyAuthState(result.token, result.user);
-    setStatus(ui.authStatus, "Signup successful.", "success");
-    await refreshScenesList();
-  } catch (error) {
-    setStatus(ui.authStatus, error.message, "error");
-  }
-}
-
-async function handleLogin() {
-  const email = ui.authEmail.value.trim();
-  const password = ui.authPassword.value;
-
-  if (!email || !password) {
-    setStatus(ui.authStatus, "Email and password are required.", "error");
-    return;
-  }
-
-  try {
-    const result = await requestJson("/auth/login", {
-      method: "POST",
-      body: { email, password }
-    });
-
-    applyAuthState(result.token, result.user);
-    setStatus(ui.authStatus, "Logged in.", "success");
-    await refreshScenesList();
-  } catch (error) {
-    setStatus(ui.authStatus, error.message, "error");
-  }
-}
-
-function setupAuthHandlers() {
-  ui.signupBtn.addEventListener("click", handleSignup);
-  ui.loginBtn.addEventListener("click", handleLogin);
-  ui.logoutBtn.addEventListener("click", () => {
-    clearAuthState();
-  });
-
-  updateAuthUi();
-}
-
-async function tryRestoreSession() {
-  const token = getStoredToken();
-  if (!token) {
-    return;
-  }
-
-  state.auth.token = token;
-
-  try {
-    const result = await requestJson("/auth/me", { method: "GET" }, true);
-    state.auth.user = result.user;
-    updateAuthUi();
-  } catch (_error) {
-    clearAuthState();
-  }
-}
-
-function populateSceneList() {
-  ui.savedScenes.innerHTML = "";
-
-  for (const scene of state.sceneSummaries) {
-    const option = document.createElement("option");
-    option.value = scene.id;
-
-    const updated = new Date(scene.updatedAt).toLocaleString();
-    option.textContent = `${scene.name} (${updated})`;
-
-    if (scene.id === state.activeSceneId) {
-      option.selected = true;
-    }
-
-    ui.savedScenes.appendChild(option);
-  }
-}
-
-async function refreshScenesList() {
-  if (!state.auth.user) {
-    ui.savedScenes.innerHTML = "";
-    setStatus(ui.cloudStatus, "Log in to save, load, and share scenes.", "info");
-    return;
-  }
-
-  try {
-    const result = await requestJson("/scenes", { method: "GET" }, true);
-    state.sceneSummaries = Array.isArray(result.scenes) ? result.scenes : [];
-    populateSceneList();
-    setStatus(ui.cloudStatus, `Loaded ${state.sceneSummaries.length} saved scenes.`, "success");
-  } catch (error) {
-    setStatus(ui.cloudStatus, error.message, "error");
-  }
-}
-
-function getSceneSelectionId() {
-  return ui.savedScenes.value || state.activeSceneId;
-}
-
-async function saveCurrentScene() {
-  if (!state.auth.user) {
-    setStatus(ui.cloudStatus, "Please log in before saving.", "error");
-    return;
-  }
-
+async function saveAndShareScene() {
   const scenePayload = {
     name: ui.sceneName.value.trim() || "Untitled Scene",
     data: serializeScene()
@@ -1221,63 +1035,20 @@ async function saveCurrentScene() {
       result = await requestJson(`/scenes/${state.activeSceneId}`, {
         method: "PUT",
         body: scenePayload
-      }, true);
+      });
     } else {
       result = await requestJson("/scenes", {
         method: "POST",
         body: scenePayload
-      }, true);
+      });
     }
 
     state.activeSceneId = result.scene.id;
+    const shareId = result.scene.shareId;
+    const shareUrl = `${window.location.origin}/?scene=${shareId}`;
+    ui.shareLink.value = shareUrl;
     ui.sceneName.value = result.scene.name;
-    await refreshScenesList();
-    setStatus(ui.cloudStatus, "Scene saved successfully.", "success");
-  } catch (error) {
-    setStatus(ui.cloudStatus, error.message, "error");
-  }
-}
-
-async function loadSelectedScene() {
-  if (!state.auth.user) {
-    setStatus(ui.cloudStatus, "Please log in before loading saved scenes.", "error");
-    return;
-  }
-
-  const sceneId = getSceneSelectionId();
-  if (!sceneId) {
-    setStatus(ui.cloudStatus, "Select a saved scene first.", "error");
-    return;
-  }
-
-  try {
-    const result = await requestJson(`/scenes/${sceneId}`, { method: "GET" }, true);
-    loadSceneData(result.scene.data);
-    state.activeSceneId = result.scene.id;
-    ui.sceneName.value = result.scene.name;
-    setStatus(ui.cloudStatus, "Scene loaded.", "success");
-    populateSceneList();
-  } catch (error) {
-    setStatus(ui.cloudStatus, error.message, "error");
-  }
-}
-
-async function shareCurrentScene() {
-  if (!state.auth.user) {
-    setStatus(ui.cloudStatus, "Please log in before sharing.", "error");
-    return;
-  }
-
-  const sceneId = getSceneSelectionId();
-  if (!sceneId) {
-    setStatus(ui.cloudStatus, "Save or load a scene first.", "error");
-    return;
-  }
-
-  try {
-    const result = await requestJson(`/scenes/${sceneId}/share`, { method: "POST" }, true);
-    ui.shareLink.value = result.shareUrl;
-    setStatus(ui.cloudStatus, "Share link generated.", "success");
+    setStatus(ui.cloudStatus, "Scene saved! Share link ready.", "success");
   } catch (error) {
     setStatus(ui.cloudStatus, error.message, "error");
   }
@@ -1287,7 +1058,7 @@ async function copyShareLink() {
   const link = ui.shareLink.value.trim();
 
   if (!link) {
-    setStatus(ui.cloudStatus, "No share link available.", "error");
+    setStatus(ui.cloudStatus, "Save a scene first to get a share link.", "error");
     return;
   }
 
@@ -1299,22 +1070,15 @@ async function copyShareLink() {
       document.execCommand("copy");
     }
 
-    setStatus(ui.cloudStatus, "Share link copied.", "success");
+    setStatus(ui.cloudStatus, "Share link copied!", "success");
   } catch (_error) {
     setStatus(ui.cloudStatus, "Could not copy link automatically.", "error");
   }
 }
 
 function setupSceneCloudHandlers() {
-  ui.saveSceneBtn.addEventListener("click", saveCurrentScene);
-  ui.refreshScenesBtn.addEventListener("click", refreshScenesList);
-  ui.loadSceneBtn.addEventListener("click", loadSelectedScene);
-  ui.shareSceneBtn.addEventListener("click", shareCurrentScene);
+  ui.saveSceneBtn.addEventListener("click", saveAndShareScene);
   ui.copyShareBtn.addEventListener("click", copyShareLink);
-
-  ui.savedScenes.addEventListener("change", () => {
-    state.activeSceneId = ui.savedScenes.value || null;
-  });
 }
 
 async function loadSharedSceneFromQueryIfPresent() {
@@ -1331,8 +1095,9 @@ async function loadSharedSceneFromQueryIfPresent() {
     });
 
     loadSceneData(result.scene.data);
-    state.activeSceneId = null;
-    ui.sceneName.value = `${result.scene.name} (shared)`;
+    state.activeSceneId = result.scene.id;
+    ui.sceneName.value = result.scene.name;
+    ui.shareLink.value = window.location.href;
     setStatus(ui.cloudStatus, "Loaded shared scene from link.", "success");
   } catch (error) {
     setStatus(ui.cloudStatus, `Could not load shared scene: ${error.message}`, "error");
@@ -1351,16 +1116,8 @@ function initializeEmptyWorkspace() {
 async function initialize() {
   setupControlHandlers();
   setupCanvasInteraction();
-  setupAuthHandlers();
   setupSceneCloudHandlers();
   initializeEmptyWorkspace();
-
-  await tryRestoreSession();
-
-  if (state.auth.user) {
-    await refreshScenesList();
-  }
-
   await loadSharedSceneFromQueryIfPresent();
 }
 

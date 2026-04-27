@@ -2,15 +2,10 @@
   "name": "transformx",
   "version": "1.0.0",
   "private": true,
-  "description": "TransformX 3D transformations app with auth and scene cloud backend",
+  "description": "TransformX 3D transformations app with shareable scene links",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js"
-  },
-  "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "express": "^4.21.2",
-    "jsonwebtoken": "^9.0.2"
   }
 }
