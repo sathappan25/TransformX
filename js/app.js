@@ -32,8 +32,6 @@ const ui = {
   szRange: document.getElementById("szRange"),
   szInput: document.getElementById("szInput"),
 
-  cameraRange: document.getElementById("cameraRange"),
-  cameraInput: document.getElementById("cameraInput"),
   resetSelectedBtn: document.getElementById("resetSelectedBtn"),
   resetAllBtn: document.getElementById("resetAllBtn"),
   matrixOutput: document.getElementById("matrixOutput")
@@ -45,7 +43,15 @@ const state = {
   objects: [],
   nextId: 1,
   selectedId: null,
-  cameraDistance: 620
+  cameraDistance: 620,
+  cameraYaw: toRadians(-42),
+  cameraPitch: toRadians(16),
+  orbit: {
+    active: false,
+    pointerId: null,
+    lastX: 0,
+    lastY: 0
+  }
 };
 
 function getCanvasCenter() {
@@ -243,8 +249,6 @@ function syncControlsFromObject(object3d) {
   setPairValues(ui.sxRange, ui.sxInput, Number(object3d.sx.toFixed(2)));
   setPairValues(ui.syRange, ui.syInput, Number(object3d.sy.toFixed(2)));
   setPairValues(ui.szRange, ui.szInput, Number(object3d.sz.toFixed(2)));
-
-  setPairValues(ui.cameraRange, ui.cameraInput, Math.round(state.cameraDistance));
 }
 
 function updateSelectedObjectLabel() {
@@ -460,12 +464,6 @@ function setupControlHandlers() {
     renderScene();
   });
 
-  bindRangeInput(ui.cameraRange, ui.cameraInput, (value) => {
-    state.cameraDistance = clamp(value, 280, 1200);
-    updateMatrixDisplay();
-    renderScene();
-  });
-
   ui.resetSelectedBtn.addEventListener("click", () => {
     const object3d = getSelectedObject();
     if (!object3d) {
@@ -487,6 +485,78 @@ function setupControlHandlers() {
       applySampleTest(Number(button.dataset.test));
     });
   }
+}
+
+function setupCanvasInteraction() {
+  canvas.style.cursor = "grab";
+
+  canvas.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0) {
+      return;
+    }
+
+    state.orbit.active = true;
+    state.orbit.pointerId = event.pointerId;
+    state.orbit.lastX = event.clientX;
+    state.orbit.lastY = event.clientY;
+    canvas.style.cursor = "grabbing";
+    canvas.setPointerCapture(event.pointerId);
+  });
+
+  canvas.addEventListener("pointermove", (event) => {
+    if (!state.orbit.active || event.pointerId !== state.orbit.pointerId) {
+      return;
+    }
+
+    const deltaX = event.clientX - state.orbit.lastX;
+    const deltaY = event.clientY - state.orbit.lastY;
+
+    state.orbit.lastX = event.clientX;
+    state.orbit.lastY = event.clientY;
+
+    state.cameraYaw += deltaX * 0.009;
+    state.cameraPitch = clamp(
+      state.cameraPitch + deltaY * 0.007,
+      toRadians(-80),
+      toRadians(80)
+    );
+
+    updateMatrixDisplay();
+    renderScene();
+  });
+
+  const stopOrbit = (event) => {
+    if (!state.orbit.active || event.pointerId !== state.orbit.pointerId) {
+      return;
+    }
+
+    state.orbit.active = false;
+    state.orbit.pointerId = null;
+    canvas.style.cursor = "grab";
+
+    if (canvas.hasPointerCapture(event.pointerId)) {
+      canvas.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  canvas.addEventListener("pointerup", stopOrbit);
+  canvas.addEventListener("pointercancel", stopOrbit);
+  canvas.addEventListener("pointerleave", (event) => {
+    if (state.orbit.active) {
+      stopOrbit(event);
+    }
+  });
+
+  canvas.addEventListener(
+    "wheel",
+    (event) => {
+      event.preventDefault();
+      state.cameraDistance = clamp(state.cameraDistance + event.deltaY * 0.7, 280, 1400);
+      updateMatrixDisplay();
+      renderScene();
+    },
+    { passive: false }
+  );
 }
 
 function applySampleTest(testId) {
@@ -645,12 +715,31 @@ function updateMatrixDisplay() {
 
   const matrix = buildTransformMatrix(object3d);
   const rows = matrix.map((row) => row.map((value) => value.toFixed(3).padStart(10, " ")).join(" "));
+  const yawDegrees = (state.cameraYaw * 180) / Math.PI;
+  const pitchDegrees = (state.cameraPitch * 180) / Math.PI;
 
-  ui.matrixOutput.textContent = `${rows.join("\n")}\n\nCamera Distance: ${state.cameraDistance.toFixed(1)}`;
+  ui.matrixOutput.textContent = `${rows.join("\n")}\n\nCamera Distance: ${state.cameraDistance.toFixed(1)}\nCamera Yaw: ${yawDegrees.toFixed(1)} deg\nCamera Pitch: ${pitchDegrees.toFixed(1)} deg`;
 }
 
-function projectPoint(point, zLiftFactor = 0) {
-  const depth = state.cameraDistance + point.z;
+function applyCameraView(point) {
+  const cosYaw = Math.cos(state.cameraYaw);
+  const sinYaw = Math.sin(state.cameraYaw);
+  const cosPitch = Math.cos(state.cameraPitch);
+  const sinPitch = Math.sin(state.cameraPitch);
+
+  const xYaw = point.x * cosYaw + point.z * sinYaw;
+  const zYaw = -point.x * sinYaw + point.z * cosYaw;
+
+  return {
+    x: xYaw,
+    y: point.y * cosPitch - zYaw * sinPitch,
+    z: point.y * sinPitch + zYaw * cosPitch
+  };
+}
+
+function projectPoint(point) {
+  const viewedPoint = applyCameraView(point);
+  const depth = state.cameraDistance + viewedPoint.z;
   if (depth < 45) {
     return null;
   }
@@ -658,20 +747,16 @@ function projectPoint(point, zLiftFactor = 0) {
   const center = getCanvasCenter();
   const perspective = state.cameraDistance / depth;
 
-  // Keep default orientation straight while still visualizing z-depth.
-  const zSkewX = point.z * 0.28;
-  const zSkewY = point.z * zLiftFactor;
-
   return {
-    x: center.x + (point.x + zSkewX) * perspective,
-    y: center.y - (point.y + zSkewY) * perspective,
+    x: center.x + viewedPoint.x * perspective,
+    y: center.y - viewedPoint.y * perspective,
     depth
   };
 }
 
-function drawProjectedLine(pointA, pointB, color, width = 1.8, zLiftFactor = 0) {
-  const start = projectPoint(pointA, zLiftFactor);
-  const end = projectPoint(pointB, zLiftFactor);
+function drawProjectedLine(pointA, pointB, color, width = 1.8) {
+  const start = projectPoint(pointA);
+  const end = projectPoint(pointB);
 
   if (!start || !end) {
     return;
@@ -688,15 +773,14 @@ function drawProjectedLine(pointA, pointB, color, width = 1.8, zLiftFactor = 0) 
 function drawAxes() {
   const axisLength = 250;
   const origin = { x: 0, y: 0, z: 0 };
-  const zLiftFactor = -0.26;
 
   drawProjectedLine(origin, { x: axisLength, y: 0, z: 0 }, "rgba(156, 16, 53, 0.88)", 2.3);
   drawProjectedLine(origin, { x: 0, y: axisLength, z: 0 }, "rgba(122, 34, 62, 0.82)", 2.3);
-  drawProjectedLine(origin, { x: 0, y: 0, z: axisLength }, "rgba(198, 20, 68, 0.98)", 3.2, zLiftFactor);
+  drawProjectedLine(origin, { x: 0, y: 0, z: axisLength }, "rgba(198, 20, 68, 0.98)", 3.2);
 
   const xTip = projectPoint({ x: axisLength, y: 0, z: 0 });
   const yTip = projectPoint({ x: 0, y: axisLength, z: 0 });
-  const zTip = projectPoint({ x: 0, y: 0, z: axisLength }, zLiftFactor);
+  const zTip = projectPoint({ x: 0, y: 0, z: axisLength });
 
   ctx.fillStyle = "rgba(20, 33, 43, 0.85)";
   ctx.font = "12px 'IBM Plex Mono', monospace";
@@ -783,6 +867,7 @@ function renderScene() {
 
 function initialize() {
   setupControlHandlers();
+  setupCanvasInteraction();
 
   addObject("cube");
   addObject("cuboid");

@@ -38,6 +38,11 @@
           </div>
           <select id="objectList" size="4"></select>
           <p id="selectedObjectLabel" class="muted">No object selected.</p>
+
+          <div class="actions space-top">
+            <button id="resetSelectedBtn" class="btn secondary">Reset Selected</button>
+            <button id="resetAllBtn" class="btn secondary">Reset All</button>
+          </div>
         </section>
 
         <section class="panel">
@@ -125,22 +130,6 @@
         </section>
 
         <section class="panel">
-          <h2>Scene Settings</h2>
-          <div class="control">
-            <label for="cameraRange">Camera Distance</label>
-            <div class="pair">
-              <input id="cameraRange" type="range" min="280" max="1200" step="5" value="620" />
-              <input id="cameraInput" type="number" min="280" max="1200" step="5" value="620" />
-            </div>
-          </div>
-
-          <div class="actions space-top">
-            <button id="resetSelectedBtn" class="btn secondary">Reset Selected</button>
-            <button id="resetAllBtn" class="btn secondary">Reset All</button>
-          </div>
-        </section>
-
-        <section class="panel">
           <h2>Transformation Matrix</h2>
           <pre id="matrixOutput">Select an object to view matrix values.</pre>
         </section>
@@ -178,7 +167,8 @@
           <div>
             <h2>3D Workspace</h2>
             <p>
-              Transform cube, cuboid, and cone using 3-axis controls.
+              Transform cube, cuboid, and cone using 3-axis controls. Drag on the workspace
+              to rotate and view all sides.
             </p>
           </div>
           <div class="legend">
